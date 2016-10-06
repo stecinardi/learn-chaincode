@@ -70,7 +70,7 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.Init(stub, "init", args)
 	} else if function == "write" {
 		return t.write(stub,args)
-	} else if function == "" {
+	} else if function == "init_watch" {
 		return t.init_watch(stub,args)
 	}
 
