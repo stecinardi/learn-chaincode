@@ -19,12 +19,23 @@ package main
 import (
 	"errors"
 	"fmt"
+	"encoding/json"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
 // SimpleChaincode example simple Chaincode implementation
 type SimpleChaincode struct {
 }
+
+//asset
+type watch struct {
+	id int
+	price float64
+	color string
+	actor string
+}
+
+var watchIndexStr = "_watchindex"
 
 // ============================================================================================================================
 // Main
@@ -59,7 +70,10 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.Init(stub, "init", args)
 	} else if function == "write" {
 		return t.write(stub,args)
+	} else if function == "" {
+		return t.init_watch(stub,args)
 	}
+
 	fmt.Println("invoke did not find func: " + function)					//error
 
 	return nil, errors.New("Received unknown function invocation")
@@ -83,6 +97,72 @@ func (t *SimpleChaincode) write (stub shim.ChaincodeStubInterface, args []string
 	}
 	
 	return nil, nil
+}
+
+func (t *SimpleChaincode) init_watch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	
+	var err error
+	
+	/* 	
+	 *	EXPECTED PARAMETERS
+	 * 	id int
+	 *	price float64
+	 *	color string
+	 *	actor string
+	*/
+
+	if len(args) != 4 {
+		return nil, errors.New("Incorrect number of arguments. Expecting 4")
+	}
+
+	fmt.Println("running init_watch()")
+
+	i, err := strconv.Atoi(args[0])
+	if err != nil {
+		return nil, errors.New("1rd argument must be a numeric string")
+	}
+
+	f, err := strconv.ParseFloat(args[1], 64)
+	if err != nil {
+		return nil, errors.New("1rd argument must be a numeric string")
+	}
+
+	if len(args[2]) <= 0 {
+		return nil, errors.New("1st argument must be a non-empty string")
+	}
+
+	if len(args[3]) <= 0 {
+		return nil, errors.New("2nd argument must be a non-empty string")
+	}
+	
+	color := strings.ToLower(args[2])
+	actor := strings.ToLower(args[3])
+
+	str := '{"id": "' + strconv.Itoa(args[0]) + '", "color": "' + color + '", "price": ' + strconv.FormatFloat(args[1], 'E', -1, 64) + ', "actor": "' + actor + '"}'
+	err = stub.PutState(args[0], []byte(str))								//store marble with id as key
+	if err != nil {
+		return nil, err
+	}
+
+	//get the marble index
+	watchAsBytes, err := stub.GetState(watchIndexStr)
+	if err != nil {
+		return nil, errors.New("Failed to get watch index")
+	}
+	var watchIndex []string
+	json.Unmarshal(watchAsBytes, &watchIndex)							//un stringify it aka JSON.parse()
+	
+	//append
+	watchIndex = append(watchIndex, args[0])								//add marble name to index list
+	fmt.Println("! watch index: ", watchIndex)
+	jsonAsBytes, _ := json.Marshal(watchIndex)
+	err = stub.PutState(watchIndexStr, jsonAsBytes)						//store name of marble
+
+	fmt.Println("- end init watch")
+	return nil, nil
+
+	return nil,nil
+
 }
 
 // Query is our entry point for queries
