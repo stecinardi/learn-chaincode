@@ -28,7 +28,7 @@ type SimpleChaincode struct {
 }
 
 //asset
-type watch struct {
+type Watch struct {
 	id int
 	price float64
 	color string
@@ -135,11 +135,17 @@ func (t *SimpleChaincode) init_watch (stub shim.ChaincodeStubInterface, args []s
 		return nil, errors.New("2nd argument must be a non-empty string")
 	}
 	
+	id := strconv.Itoa(args[0]
+	price := strconv.FormatFloat(args[1]
 	color := strings.ToLower(args[2])
 	actor := strings.ToLower(args[3])
 
-	str := '{"id": "' + strconv.Itoa(args[0]) + '", "color": "' + color + '", "price": ' + strconv.FormatFloat(args[1], 'E', -1, 64) + ', "actor": "' + actor + '"}'
-	err = stub.PutState(args[0], []byte(str))								//store marble with id as key
+	watch := Watch {id,price,color,actor}
+
+	//str := '{"id": "' + strconv.Itoa(args[0]) + '", "color": "' + color + '", "price": ' + strconv.FormatFloat(args[1], 'E', -1, 64) + ', "actor": "' + actor + '"}'
+	jsonAsBytes, err := json.Marshal (watch)
+	err = stub.PutState(args[0], jsonAsBytes)								//store watch with id as key
+	
 	if err != nil {
 		return nil, err
 	}
