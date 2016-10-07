@@ -144,6 +144,7 @@ func (t *SimpleChaincode) init_watch (stub *shim.ChaincodeStub, args []string) (
 
 	//str := '{"id": "' + strconv.Itoa(args[0]) + '", "color": "' + color + '", "price": ' + strconv.FormatFloat(args[1], 'E', -1, 64) + ', "actor": "' + actor + '"}'
 	jsonAsBytes, err := json.Marshal (watch)
+	fmt.Println("JSON init_watch created: " + jsonAsBytes)
 	err = stub.PutState(args[0], jsonAsBytes)								//store watch with id as key
 	
 	if err != nil {
@@ -194,7 +195,7 @@ func (t *SimpleChaincode) read (stub *shim.ChaincodeStub, args []string) ([]byte
 	}
 
 	key = args[0]
-
+	fmt.Println("key: " + key)	
 	valAsbytes, err := stub.GetState(key)
 
 	 if err != nil {
