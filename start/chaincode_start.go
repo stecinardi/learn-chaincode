@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"encoding/json"
+	"strconv"
+	"strings"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
@@ -117,12 +119,12 @@ func (t *SimpleChaincode) init_watch (stub shim.ChaincodeStubInterface, args []s
 
 	fmt.Println("running init_watch()")
 
-	i, err := strconv.Atoi(args[0])
+	id, err := strconv.Atoi(args[0])
 	if err != nil {
 		return nil, errors.New("1rd argument must be a numeric string")
 	}
 
-	f, err := strconv.ParseFloat(args[1], 64)
+	price, err := strconv.ParseFloat(args[1], 64)
 	if err != nil {
 		return nil, errors.New("1rd argument must be a numeric string")
 	}
@@ -135,8 +137,6 @@ func (t *SimpleChaincode) init_watch (stub shim.ChaincodeStubInterface, args []s
 		return nil, errors.New("2nd argument must be a non-empty string")
 	}
 	
-	id := strconv.Itoa(args[0]
-	price := strconv.FormatFloat(args[1]
 	color := strings.ToLower(args[2])
 	actor := strings.ToLower(args[3])
 
@@ -188,7 +188,7 @@ func (t *SimpleChaincode) read (stub shim.ChaincodeStubInterface, args []string)
 	var key, jsonResp string
 	var err error
 
-	/*if len(args) != 1 {
+	if len(args) != 1 {
 		return nil, errors.New("Incorrect number of arguments. Expecting name of the key to query")
 
 	}
@@ -201,7 +201,7 @@ func (t *SimpleChaincode) read (stub shim.ChaincodeStubInterface, args []string)
         jsonResp = "{\"Error\":\"Failed to get state for " + key + "\"}"
         return nil, errors.New(jsonResp)
     }
-*/
-    return nil, nil
+
+    return valAsbytes, nil
 }
 
