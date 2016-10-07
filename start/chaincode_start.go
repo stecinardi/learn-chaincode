@@ -189,7 +189,7 @@ func (t *SimpleChaincode) read (stub *shim.ChaincodeStub, args []string) ([]byte
 	var err error
 
 	if len(args) != 1 {
-		return nil, errors.New("Incorrect number of arguments. Expecting name of the key to querry")
+		return nil, errors.New("Incorrect number of arguments. Expecting name of the key to query")
 
 	}
 
