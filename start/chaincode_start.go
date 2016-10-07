@@ -19,10 +19,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	//
-	//"encoding/json"
-	"strconv"
-	"strings"
+	"encoding/json"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
@@ -32,8 +29,8 @@ type SimpleChaincode struct {
 
 //asset
 type Watch struct {
-	id int
-	price float64
+	id string
+	price string
 	color string
 	actor string
 }
@@ -74,7 +71,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 	} else if function == "write" {
 		return t.write(stub,args)
 	} else if function == "init_watch" {
-		return t.init_watch(stub,args)
+		return t.write(stub,args)
 	}
 
 	fmt.Println("invoke did not find func: " + function)					//error
@@ -83,96 +80,34 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 }
 
 func (t *SimpleChaincode) write (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	var key,value string
-	var err error
-	fmt.Println("running write()")
-
+	
 	if len(args) != 2 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 2. name of the key and value to set")
 	}
+
+	var jsonString = []byte(args[1])
+
+	var err error
+	var key,value string	
+	var w Watch
+
+	jsonErr := json.Unmarshal(jsonString, &w)
+	
+	if jsonErr != nil {
+		return nil,jsonErr
+	}
+	fmt.Println("running write() - actor: " + w.actor)
 
 	key = args [0]
 	value = args [1]
 
 	err = stub.PutState(key, []byte (value))
+	
 	if err != nil {
 		return nil,err
 	}
 	
 	return nil, nil
-}
-
-func (t *SimpleChaincode) init_watch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	
-	var err error
-	
-	/* 	
-	 *	EXPECTED PARAMETERS
-	 * 	id int
-	 *	price float64
-	 *	color string
-	 *	actor string
-	*/
-
-	if len(args) != 4 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 4")
-	}
-
-	fmt.Println("running init_watch()")
-
-	id, err := strconv.Atoi(args[0])
-	fmt.Println("id:" + args[0])
-	if err != nil {
-		return nil, errors.New("1rd argument must be a numeric string")
-	}
-
-	price, err := strconv.ParseFloat(args[1], 64)
-	if err != nil {
-		return nil, errors.New("1rd argument must be a numeric string")
-	}
-	fmt.Println("price:" + args[1])
-
-	if len(args[2]) <= 0 {
-		return nil, errors.New("1st argument must be a non-empty string")
-	}
-
-	if len(args[3]) <= 0 {
-		return nil, errors.New("2nd argument must be a non-empty string")
-	}
-	
-	color := strings.ToLower(args[2])
-	actor := strings.ToLower(args[3])
-
-	fmt.Printf("id and color watch - id: %d - color: %s\n", id, color)
-	//watch := Watch {id,price,color,actor}
-	
-	str := `{"id": "` + strconv.Itoa(id) + `", "color": "` + color + `", "price": ` + strconv.FormatFloat(price, 'E', -1, 64) + `", "actor": "` + actor + `"}`
-	//jsonAsBytes, err := json.Marshal (watch)
-	err = stub.PutState(args[0], []byte(str))								//store watch with id as key
-	
-	if err != nil {
-		return nil, err
-	}
-
-	//get the marble index
-	/*watchAsBytes, err := stub.GetState(watchIndexStr)
-	if err != nil {
-		return nil, errors.New("Failed to get watch index")
-	}
-	var watchIndex []string
-	json.Unmarshal(watchAsBytes, &watchIndex)							//un stringify it aka JSON.parse()
-	
-	//append
-	watchIndex = append(watchIndex, args[0])								//add marble name to index list
-	fmt.Println("! watch index: ", watchIndex)
-	jsonAsBytes, _ := json.Marshal(watchIndex)
-	err = stub.PutState(watchIndexStr, jsonAsBytes)						//store name of marble
-
-	fmt.Println("- end init watch")
-*/
-	return nil,nil
-
-
 }
 
 // Query is our entry point for queries
