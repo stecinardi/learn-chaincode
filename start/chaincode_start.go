@@ -121,6 +121,7 @@ func (t *SimpleChaincode) init_watch (stub *shim.ChaincodeStub, args []string) (
 	fmt.Println("running init_watch()")
 
 	id, err := strconv.Atoi(args[0])
+	fmt.Println("id:" + args[0])
 	if err != nil {
 		return nil, errors.New("1rd argument must be a numeric string")
 	}
@@ -129,6 +130,7 @@ func (t *SimpleChaincode) init_watch (stub *shim.ChaincodeStub, args []string) (
 	if err != nil {
 		return nil, errors.New("1rd argument must be a numeric string")
 	}
+	fmt.Println("price:" + args[1])
 
 	if len(args[2]) <= 0 {
 		return nil, errors.New("1st argument must be a non-empty string")
