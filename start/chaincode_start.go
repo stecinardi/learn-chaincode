@@ -151,7 +151,7 @@ func (t *SimpleChaincode) init_watch (stub shim.ChaincodeStubInterface, args []s
 	}
 
 	//get the marble index
-	watchAsBytes, err := stub.GetState(watchIndexStr)
+	/*watchAsBytes, err := stub.GetState(watchIndexStr)
 	if err != nil {
 		return nil, errors.New("Failed to get watch index")
 	}
@@ -165,9 +165,9 @@ func (t *SimpleChaincode) init_watch (stub shim.ChaincodeStubInterface, args []s
 	err = stub.PutState(watchIndexStr, jsonAsBytes)						//store name of marble
 
 	fmt.Println("- end init watch")
-	return nil, nil
 
 	return nil,nil
+	*/
 
 }
 
