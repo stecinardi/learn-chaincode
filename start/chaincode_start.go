@@ -167,7 +167,7 @@ func (t *SimpleChaincode) init_watch (stub shim.ChaincodeStubInterface, args []s
 	fmt.Println("- end init watch")
 */
 	return nil,nil
-	
+
 
 }
 
@@ -194,6 +194,7 @@ func (t *SimpleChaincode) read (stub shim.ChaincodeStubInterface, args []string)
 	}
 
 	key = args[0]
+	return nil,errors.New("key: " +key);
 	valAsbytes, err := stub.GetState(key)
 
 	 if err != nil {
