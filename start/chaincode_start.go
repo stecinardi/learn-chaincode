@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"strconv"
 	"strings"
-	"os"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
@@ -145,7 +144,7 @@ func (t *SimpleChaincode) init_watch (stub *shim.ChaincodeStub, args []string) (
 
 	//str := '{"id": "' + strconv.Itoa(args[0]) + '", "color": "' + color + '", "price": ' + strconv.FormatFloat(args[1], 'E', -1, 64) + ', "actor": "' + actor + '"}'
 	jsonAsBytes, err := json.Marshal (watch)
-	os.Stdout.Write(jsonAsBytes)
+	fmt.Printf("id and color watch - id: %d - color: %s\n", id, color)
 	err = stub.PutState(args[0], jsonAsBytes)								//store watch with id as key
 	
 	if err != nil {
