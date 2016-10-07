@@ -117,7 +117,7 @@ func (t *SimpleChaincode) init_watch (stub *shim.ChaincodeStub, args []string) (
 		return nil, errors.New("Incorrect number of arguments. Expecting 4")
 	}
 
-	fmt.Println("running init_watch()")
+	fmt.Println("running init_watchhhhh()")
 
 	id, err := strconv.Atoi(args[0])
 	if err != nil {
@@ -141,10 +141,10 @@ func (t *SimpleChaincode) init_watch (stub *shim.ChaincodeStub, args []string) (
 	actor := strings.ToLower(args[3])
 
 	watch := Watch {id,price,color,actor}
-
+	fmt.Printf("id and color watch - id: %d - color: %s\n", id, color)
 	//str := '{"id": "' + strconv.Itoa(args[0]) + '", "color": "' + color + '", "price": ' + strconv.FormatFloat(args[1], 'E', -1, 64) + ', "actor": "' + actor + '"}'
 	jsonAsBytes, err := json.Marshal (watch)
-	fmt.Printf("id and color watch - id: %d - color: %s\n", id, color)
+	
 	err = stub.PutState(args[0], jsonAsBytes)								//store watch with id as key
 	
 	if err != nil {
