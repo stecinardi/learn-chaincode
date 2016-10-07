@@ -19,7 +19,8 @@ package main
 import (
 	"errors"
 	"fmt"
-	"encoding/json"
+	//
+	//"encoding/json"
 	"strconv"
 	"strings"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -139,13 +140,13 @@ func (t *SimpleChaincode) init_watch (stub *shim.ChaincodeStub, args []string) (
 	
 	color := strings.ToLower(args[2])
 	actor := strings.ToLower(args[3])
+
 	fmt.Printf("id and color watch - id: %d - color: %s\n", id, color)
-	watch := Watch {id,price,color,actor}
-	fmt.Printf("id and color watch - id: %d - color: %s\n", id, color)
-	//str := '{"id": "' + strconv.Itoa(args[0]) + '", "color": "' + color + '", "price": ' + strconv.FormatFloat(args[1], 'E', -1, 64) + ', "actor": "' + actor + '"}'
-	jsonAsBytes, err := json.Marshal (watch)
+	//watch := Watch {id,price,color,actor}
 	
-	err = stub.PutState(args[0], jsonAsBytes)								//store watch with id as key
+	str := `{"id": "` + strconv.Itoa(id) + `", "color": "` + color + `", "price": ` + strconv.FormatFloat(price, 'E', -1, 64) + `", "actor": "` + actor + `"}`
+	//jsonAsBytes, err := json.Marshal (watch)
+	err = stub.PutState(args[0], []byte(str))								//store watch with id as key
 	
 	if err != nil {
 		return nil, err
