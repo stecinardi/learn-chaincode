@@ -194,7 +194,9 @@ func (t *SimpleChaincode) read (stub shim.ChaincodeStubInterface, args []string)
 	}
 
 	key = args[0]
-	return nil,errors.New("key: " +key);
+
+	return nil, errors.New("key: " + key)
+
 	valAsbytes, err := stub.GetState(key)
 
 	 if err != nil {
