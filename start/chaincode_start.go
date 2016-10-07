@@ -165,9 +165,9 @@ func (t *SimpleChaincode) init_watch (stub shim.ChaincodeStubInterface, args []s
 	err = stub.PutState(watchIndexStr, jsonAsBytes)						//store name of marble
 
 	fmt.Println("- end init watch")
-
+*/
 	return nil,nil
-	*/
+	
 
 }
 
