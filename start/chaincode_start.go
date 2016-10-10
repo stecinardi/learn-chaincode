@@ -89,8 +89,8 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 	// Handle different functions
 	if function == "init" {													//initialize the chaincode state, used as reset
 		return t.Init(stub, "init", args)
-	//} else if function == "move_to_actor" {
-	//	return t.write(stub,args)
+	} else if function == "move_to_next_actor" {
+		return t.moveToNextActor(stub,args)
 	} else if function == "create_watch" {
 		return t.create_watch(stub,args)
 	} else if function == "add_attachment" {
@@ -168,18 +168,59 @@ func (t *SimpleChaincode) read (stub *shim.ChaincodeStub, args []string) ([]byte
 }
 
 func (t *SimpleChaincode) addAttachment (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+		
+		fmt.Println("running addAttachment() - serial: " + args[0])
+
 		var attachment Attachment
-		idWatch := args[0] // id orologio
+		serialWatch := args[0] // id orologio
 		attachment.Id = args[1]
 		attachment.URL = args[2]
-		watchAsBytes, err := stub.GetState(idWatch)
+		watchAsBytes, err := stub.GetState(serialWatch)
 		if err != nil {
 			return nil, err
 		}
 		watch := unmarshJson(watchAsBytes)
 		watch.Attachments = append (watch.Attachments,attachment)
 
+		jsonAsBytes, err := json.Marshal(watch)
+		if err != nil {
+			fmt.Println("error: ", err)
+		}
+
+		err = stub.PutState(args[0], jsonAsBytes)								//rewrite the marble with id as key
+		if err != nil {
+			return nil, err
+		}
+
 		return nil, nil
+
+}
+
+func (t *SimpleChaincode) moveToNextActor (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+	idWatch := args[0] // id orologio
+	nextActor := args[1]
+
+	var watch Watch
+
+	watchAsBytes, err := stub.GetState(idWatch)
+	if err != nil {
+		return nil, err
+	}
+	watch = unmarshJson(watchAsBytes)
+	watch.Actor = nextActor
+
+	jsonString, err := json.Marshal(watch)
+	if err != nil {
+		fmt.Println("error: ", err)
+	}
+
+	err = stub.PutState(watch.Serial, jsonString)
+	
+	if err != nil {
+		return nil,err
+	}
+
+	return nil,nil
 
 }
 
