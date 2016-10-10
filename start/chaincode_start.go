@@ -29,10 +29,31 @@ type SimpleChaincode struct {
 
 //asset
 type Watch struct {
+	Serial string  	`json:"serial"`
+	Price string 	`json:"price"`
+	Model string 	`json:"model"`
+	Actor string 	`json:"actor"`
+	Attachments []Attachment
+}
+
+type Attachment struct {
 	Id string
-	Price string
-	Color string
-	Actor string
+	URL string
+}
+
+type Role string  
+
+const (
+	manifacturer 	= 1
+	distributor 	= 2
+	retailer	= 3
+)
+
+
+type Actor struct {
+	Name string
+	Description string
+	Role Role
 }
 
 var watchIndexStr = "_watchindex"
@@ -68,10 +89,12 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 	// Handle different functions
 	if function == "init" {													//initialize the chaincode state, used as reset
 		return t.Init(stub, "init", args)
-	} else if function == "write" {
-		return t.write(stub,args)
-	} else if function == "init_watch" {
-		return t.write(stub,args)
+	//} else if function == "move_to_actor" {
+	//	return t.write(stub,args)
+	} else if function == "create_watch" {
+		return t.create_watch(stub,args)
+	} else if function == "add_attachment" {
+		return t.addAttachment(stub,args)
 	}
 
 	fmt.Println("invoke did not find func: " + function)					//error
@@ -79,7 +102,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 	return nil, errors.New("Received unknown function invocation")
 }
 
-func (t *SimpleChaincode) write (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode) create_watch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	
 	if len(args) != 2 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 2. name of the key and value to set")
@@ -89,13 +112,7 @@ func (t *SimpleChaincode) write (stub *shim.ChaincodeStub, args []string) ([]byt
 
 	var key string	
 	
-	var watch Watch
-
-	err := json.Unmarshal(jsonBlob, &watch)
-	
-	if err != nil {
-		fmt.Println("error:", err)
-	}
+	watch := unmarshJson(jsonBlob)
 
 	fmt.Println("running write() - actor: " + watch.Actor)
 	fmt.Printf("watch object: %+v", watch)
@@ -106,7 +123,6 @@ func (t *SimpleChaincode) write (stub *shim.ChaincodeStub, args []string) ([]byt
 	if err != nil {
 		fmt.Println("error: ", err)
 	}
-	//value = args [1]
 
 	err = stub.PutState(key, jsonString)
 	
@@ -149,5 +165,30 @@ func (t *SimpleChaincode) read (stub *shim.ChaincodeStub, args []string) ([]byte
     }
 
     return valAsbytes, nil
+}
+
+func (t *SimpleChaincode) addAttachment (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+		var attachment Attachment
+		idWatch := args[0] // id orologio
+		attachment.Id = args[1]
+		attachment.URL = args[2]
+		watchAsBytes, err := stub.GetState(idWatch)
+		if err != nil {
+			return nil, err
+		}
+		watch := unmarshJson(watchAsBytes)
+		watch.Attachments = append (watch.Attachments,attachment)
+
+		return nil, nil
+
+}
+
+func  unmarshJson (jsonAsByte []byte) (Watch) {
+	var watch Watch
+	err := json.Unmarshal(jsonAsByte, &watch)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	return watch
 }
 
