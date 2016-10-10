@@ -29,10 +29,10 @@ type SimpleChaincode struct {
 
 //asset
 type Watch struct {
-	id string
-	price string
-	color string
-	actor string
+	Id string
+	Price string
+	Color string
+	Actor string
 }
 
 var watchIndexStr = "_watchindex"
@@ -85,23 +85,30 @@ func (t *SimpleChaincode) write (stub *shim.ChaincodeStub, args []string) ([]byt
 		return nil, errors.New("Incorrect number of arguments. Expecting 2. name of the key and value to set")
 	}
 
-	var jsonString = []byte(args[1])
+	var jsonBlob = []byte(args[1])
 
-	var err error
-	var key,value string	
-	var w Watch
-
-	jsonErr := json.Unmarshal(jsonString, &w)
+	var key string	
 	
-	if jsonErr != nil {
-		return nil,jsonErr
+	var watch Watch
+
+	err := json.Unmarshal(jsonBlob, &watch)
+	
+	if err != nil {
+		fmt.Println("error:", err)
 	}
-	fmt.Println("running write() - actor: " + w.actor)
 
+	fmt.Println("running write() - actor: " + watch.Actor)
+	fmt.Printf("watch object: %+v", watch)
+	
 	key = args [0]
-	value = args [1]
 
-	err = stub.PutState(key, []byte (value))
+	jsonString, err := json.Marshal(watch)
+	if err != nil {
+		fmt.Println("error: ", err)
+	}
+	//value = args [1]
+
+	err = stub.PutState(key, jsonString)
 	
 	if err != nil {
 		return nil,err
