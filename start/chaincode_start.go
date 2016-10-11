@@ -110,7 +110,7 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 	// Handle different functions
 	if function == "read" {											//read a variable
 		return t.read(stub,args)
-	} else if function == "read_all_bloks" {
+	} else if function == "read_all_blocks" {
 		return t.readAllBlocks(stub,args)
 	}
 
@@ -152,20 +152,14 @@ func (t *SimpleChaincode) readAllBlocks (stub *shim.ChaincodeStub, args []string
 
 func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	
-	if len(args) != 2 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 2. name of the key and value to set")
-	}
-
 	var jsonBlob = []byte(args[1])
-
-	var key string	
 	
 	watch := unmarshJson(jsonBlob)
 
 	fmt.Println("running write() - actor: " + watch.Actor)
 	fmt.Printf("watch object: %+v", watch)
 	
-	key = args [0]
+	key := args [0]
 
 	jsonString, err := json.Marshal(watch)
 	if err != nil {
@@ -201,36 +195,48 @@ func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) 
 
 func (t *SimpleChaincode) addAttachment (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 		
-		fmt.Println("running addAttachment() - serial: " + args[0])
+	fmt.Println("running addAttachment() for the watch with serial: " + args[0])
 
-		var attachment Attachment
-		serialWatch := args[0] // id orologio
-		attachment.Id = args[1]
-		attachment.URL = args[2]
-		watchAsBytes, err := stub.GetState(serialWatch)
-		if err != nil {
-			return nil, err
-		}
-		watch := unmarshJson(watchAsBytes)
-		watch.Attachments = append (watch.Attachments,attachment)
+	if len(args) != 3 {
+			return nil, errors.New("Incorrect number of arguments. Expecting serial, attachment id and attachment URL")
+	}
 
-		jsonAsBytes, err := json.Marshal(watch)
-		if err != nil {
-			fmt.Println("error: ", err)
-		}
+	var attachment Attachment
+	serialWatch := args[0] // id orologio
+	attachment.Id = args[1]
+	attachment.URL = args[2]
+	watchAsBytes, err := stub.GetState(serialWatch)
+	if err != nil {
+		return nil, err
+	}
 
-		err = stub.PutState(args[0], jsonAsBytes)								//rewrite the marble with id as key
-		if err != nil {
-			return nil, err
-		}
+	watch := unmarshJson(watchAsBytes)
+	watch.Attachments = append (watch.Attachments,attachment)
 
-		return nil, nil
+	jsonAsBytes, err := json.Marshal(watch)
+	if err != nil {
+		fmt.Println("error: ", err)
+	}
+
+	err = stub.PutState(args[0], jsonAsBytes)								//rewrite the marble with id as key
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 
 }
 
 func (t *SimpleChaincode) moveToNextActor (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+	
+	if len(args) != 2 {
+		return nil, errors.New("Incorrect number of arguments. Expecting serial and next actor as arguments")
+	}
+
 	idWatch := args[0] // id orologio
 	nextActor := args[1]
+
+	fmt.Println("running moveToNextActor() for the watch with serial: " + args[0])
 
 	var watch Watch
 
@@ -251,6 +257,8 @@ func (t *SimpleChaincode) moveToNextActor (stub *shim.ChaincodeStub, args []stri
 	if err != nil {
 		return nil,err
 	}
+
+	fmt.Println("Watch with serial: " + args[0] + " moved to " + nextActor)
 
 	return nil,nil
 
