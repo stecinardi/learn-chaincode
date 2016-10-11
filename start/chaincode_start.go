@@ -37,8 +37,8 @@ type Watch struct {
 }
 
 type Attachment struct {
-	Id string
-	URL string
+	Id string 		`json:"id"`
+	URL string 		`json:"url"`
 }
 
 type Role string  
@@ -46,7 +46,7 @@ type Role string
 const (
 	manifacturer 	= 1
 	distributor 	= 2
-	retailer	= 3
+	retailer		= 3
 )
 
 
@@ -70,16 +70,16 @@ func main() {
 
 // Init resets all the things
 func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	if len(args) != 1 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 1")
-	}
-
-	err:= stub.PutState("hello_world",[]byte(args[0]))
+	
+//inizializzo la lista di indici dei vari orologi contenuti nella blockchain	
+	var empty []string
+	jsonAsBytes, _ := json.Marshal(empty)								//marshal an emtpy array of strings to clear the index
+	err := stub.PutState(watchIndexStr, jsonAsBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	return nil,nil
 }
 
 // Invoke is our entry point to invoke a chaincode function
@@ -92,7 +92,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 	} else if function == "move_to_next_actor" {
 		return t.moveToNextActor(stub,args)
 	} else if function == "create_watch" {
-		return t.create_watch(stub,args)
+		return t.createWatch(stub,args)
 	} else if function == "add_attachment" {
 		return t.addAttachment(stub,args)
 	}
@@ -102,7 +102,55 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 	return nil, errors.New("Received unknown function invocation")
 }
 
-func (t *SimpleChaincode) create_watch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+
+// Query is our entry point for queries
+func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	fmt.Println("query is running " + function)
+
+	// Handle different functions
+	if function == "read" {											//read a variable
+		return t.read(stub,args)
+	} else if function == "read_all_bloks" {
+		return t.readAllBlocks(stub,args)
+	}
+
+	fmt.Println("query did not find func: " + function)						//error
+
+	return nil, errors.New("Received unknown function query")
+}
+
+func (t *SimpleChaincode) read (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+	var key, jsonResp string
+	var err error
+
+	if len(args) != 1 {
+		return nil, errors.New("Incorrect number of arguments. Expecting name of the key to query")
+
+	}
+
+	key = args[0]
+	fmt.Println("key: " + key)	
+	valAsbytes, err := stub.GetState(key)
+
+	 if err != nil {
+        jsonResp = "{\"Error\":\"Failed to get state for " + key + "\"}"
+        return nil, errors.New(jsonResp)
+    }
+
+    return valAsbytes, nil
+}
+
+func (t *SimpleChaincode) readAllBlocks (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+
+	watchAsBytes, err := stub.GetState(watchIndexStr)
+		if err != nil {
+			return nil, errors.New("Failed to get marble index")
+		}
+		
+		return watchAsBytes,nil
+}
+
+func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	
 	if len(args) != 2 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 2. name of the key and value to set")
@@ -129,42 +177,26 @@ func (t *SimpleChaincode) create_watch (stub *shim.ChaincodeStub, args []string)
 	if err != nil {
 		return nil,err
 	}
+
+	watchAsBytes, err := stub.GetState(watchIndexStr)
+	if err != nil {
+		return nil, errors.New("Failed to get marble index")
+	}
 	
+	//get index array
+
+	var watchIndex []string
+	json.Unmarshal(watchAsBytes, &watchIndex)							//un stringify it aka JSON.parse()
+	
+	//append
+	watchIndex = append(watchIndex, key)								//add marble name to index list
+	fmt.Println("! watch index: ", watchIndex)
+	jsonAsBytes, _ := json.Marshal(watchIndex)
+	err = stub.PutState(watchIndexStr, jsonAsBytes)						//store name of marble
+
+	fmt.Println("- end create new watch")
+
 	return nil, nil
-}
-
-// Query is our entry point for queries
-func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	fmt.Println("query is running " + function)
-
-	// Handle different functions
-	if function == "read" {											//read a variable
-		return t.read(stub,args)
-	}
-	fmt.Println("query did not find func: " + function)						//error
-
-	return nil, errors.New("Received unknown function query")
-}
-
-func (t *SimpleChaincode) read (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	var key, jsonResp string
-	var err error
-
-	if len(args) != 1 {
-		return nil, errors.New("Incorrect number of arguments. Expecting name of the key to query")
-
-	}
-
-	key = args[0]
-	fmt.Println("key: " + key)	
-	valAsbytes, err := stub.GetState(key)
-
-	 if err != nil {
-        jsonResp = "{\"Error\":\"Failed to get state for " + key + "\"}"
-        return nil, errors.New(jsonResp)
-    }
-
-    return valAsbytes, nil
 }
 
 func (t *SimpleChaincode) addAttachment (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
@@ -203,12 +235,12 @@ func (t *SimpleChaincode) moveToNextActor (stub *shim.ChaincodeStub, args []stri
 	var watch Watch
 
 	watchAsBytes, err := stub.GetState(idWatch)
+	
+	watch = unmarshJson(watchAsBytes)
+	watch.Actor = nextActor
 	if err != nil {
 		return nil, err
 	}
-	watch = unmarshJson(watchAsBytes)
-	watch.Actor = nextActor
-
 	jsonString, err := json.Marshal(watch)
 	if err != nil {
 		fmt.Println("error: ", err)
@@ -231,5 +263,9 @@ func  unmarshJson (jsonAsByte []byte) (Watch) {
 		fmt.Println("error:", err)
 	}
 	return watch
+}
+
+func insertNewBlockIndex (serial string) {
+
 }
 
