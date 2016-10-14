@@ -33,7 +33,7 @@ type Watch struct {
 	Price string 	`json:"price"`
 	Model string 	`json:"model"`
 	Actor string 	`json:"actor"`
-	Attachments []Attachment
+	Attachments []Attachment `json:"attachments"`
 }
 
 type Attachment struct {
