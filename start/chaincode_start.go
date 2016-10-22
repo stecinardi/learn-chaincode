@@ -21,6 +21,11 @@ import (
 	"fmt"
 	"encoding/json"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	"crypto/x509"
+	"encoding/pem"
+	"net/url"
+	"strconv"
+	"strings"
 )
 
 // SimpleChaincode example simple Chaincode implementation
@@ -51,9 +56,14 @@ const (
 
 
 type Actor struct {
-	Name string
-	Description string
-	Role Role
+	Name string `json:"name"`
+	Description string `json:"description"`
+	Role Role `json:"role"`
+}
+
+type User_and_eCert struct {
+	Identity string `json:"identity"`
+	eCert string `json:"ecert"`
 }
 
 var watchIndexStr = "_watchindex"
@@ -79,8 +89,125 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 		return nil, err
 	}
 
+	for i:=0; i < len(args); i=i+2 {
+		
+		t.add_ecert(stub, args[i], args[i+1])													
+	}
+
 	return nil,nil
 }
+
+//==============================================================================================================================
+//	 General Functions
+//==============================================================================================================================
+//	 get_ecert - Takes the name passed and calls out to the REST API for HyperLedger to retrieve the ecert
+//				 for that user. Returns the ecert as retrived including html encoding.
+//==============================================================================================================================
+func (t *SimpleChaincode) get_ecert(stub *shim.ChaincodeStub, name string) ([]byte, error) {
+	
+	ecert, err := stub.GetState(name)
+
+	if err != nil { return nil, errors.New("Couldn't retrieve ecert for user " + name) }
+	
+	return ecert, nil
+}
+
+//==============================================================================================================================
+//	 add_ecert - Adds a new ecert and user pair to the table of ecerts
+//==============================================================================================================================
+
+func (t *SimpleChaincode) add_ecert(stub *shim.ChaincodeStub, name string, ecert string) ([]byte, error) {
+	
+	
+	err := stub.PutState(name, []byte(ecert))
+
+	if err == nil {
+		return nil, errors.New("Error storing eCert for user " + name + " identity: " + ecert)
+	}
+	
+	return nil, nil
+
+}
+
+//==============================================================================================================================
+//	 get_caller - Retrieves the username of the user who invoked the chaincode.
+//				  Returns the username as a string.
+//==============================================================================================================================
+
+func (t *SimpleChaincode) get_username(stub *shim.ChaincodeStub) (string, error) {
+
+	bytes, err := stub.GetCallerCertificate();
+	if err != nil { 
+		return "", errors.New("Couldn't retrieve caller certificate") 
+	}
+
+	x509Cert, err := x509.ParseCertificate(bytes);				// Extract Certificate from result of GetCallerCertificate						
+	if err != nil { 
+		return "", errors.New("Couldn't parse certificate")	
+	}
+															
+	return x509Cert.Subject.CommonName, nil
+}
+
+//==============================================================================================================================
+//	 check_affiliation - Takes an ecert as a string, decodes it to remove html encoding then parses it and checks the
+// 				  		certificates common name. The affiliation is stored as part of the common name.
+//==============================================================================================================================
+
+func (t *SimpleChaincode) check_affiliation(stub *shim.ChaincodeStub, cert string) (int, error) {																																																					
+	
+
+	decodedCert, err := url.QueryUnescape(cert);    				// make % etc normal //
+	
+	if err != nil { 
+		return -1, errors.New("Could not decode certificate") 
+	}
+	pem, _ := pem.Decode([]byte(decodedCert))           				// Make Plain text   //
+	x509Cert, err := x509.ParseCertificate(pem.Bytes);				// Extract Certificate from argument //
+														
+	if err != nil { 
+		return -1, errors.New("Couldn't parse certificate")	
+	}
+
+	cn := x509Cert.Subject.CommonName
+	res := strings.Split(cn,"\\")
+	affiliation, _ := strconv.Atoi(res[2])
+	
+	return affiliation, nil
+		
+}
+
+//==============================================================================================================================
+//	 get_caller_data - Calls the get_ecert and check_role functions and returns the ecert and role for the
+//					 name passed.
+//==============================================================================================================================
+
+func (t *SimpleChaincode) get_caller_data(stub *shim.ChaincodeStub) (string, int, error){	
+
+	user, err := t.get_username(stub)
+	if err != nil { 
+		return "", -1, err 
+	}
+																		
+	ecert, err := t.get_ecert(stub, user);					
+	if err != nil { 
+		return "", -1, err 
+	}
+
+	affiliation, err := t.check_affiliation(stub,string(ecert));			
+	if err != nil { 
+		return "", -1, err 
+	}
+
+	return user, affiliation, nil
+}
+
+//==============================================================================================================================
+//	 Router Functions
+//==============================================================================================================================
+//	Invoke - Called on chaincode invoke. Takes a function name passed and calls that function. Converts some
+//		  initial arguments passed to other things for use in the called function e.g. name -> ecert
+//==============================================================================================================================
 
 // Invoke is our entry point to invoke a chaincode function
 func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
@@ -144,7 +271,7 @@ func (t *SimpleChaincode) readAllBlocks (stub *shim.ChaincodeStub, args []string
 
 	watchAsBytes, err := stub.GetState(watchIndexStr)
 		if err != nil {
-			return nil, errors.New("Failed to get marble index")
+			return nil, errors.New("Failed to get watch index")
 		}
 		
 		return watchAsBytes,nil
@@ -174,7 +301,7 @@ func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) 
 
 	watchAsBytes, err := stub.GetState(watchIndexStr)
 	if err != nil {
-		return nil, errors.New("Failed to get marble index")
+		return nil, errors.New("Failed to get watch index")
 	}
 	
 	//get index array
@@ -183,10 +310,10 @@ func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) 
 	json.Unmarshal(watchAsBytes, &watchIndex)							//un stringify it aka JSON.parse()
 	
 	//append
-	watchIndex = append(watchIndex, key)								//add marble name to index list
+	watchIndex = append(watchIndex, key)								//add watch name to index list
 	fmt.Println("! watch index: ", watchIndex)
 	jsonAsBytes, _ := json.Marshal(watchIndex)
-	err = stub.PutState(watchIndexStr, jsonAsBytes)						//store name of marble
+	err = stub.PutState(watchIndexStr, jsonAsBytes)						//store name of watch
 
 	fmt.Println("- end create new watch")
 
@@ -218,7 +345,7 @@ func (t *SimpleChaincode) addAttachment (stub *shim.ChaincodeStub, args []string
 		fmt.Println("error: ", err)
 	}
 
-	err = stub.PutState(args[0], jsonAsBytes)								//rewrite the marble with id as key
+	err = stub.PutState(args[0], jsonAsBytes)								//rewrite the watch with id as key
 	if err != nil {
 		return nil, err
 	}
