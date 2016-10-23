@@ -182,25 +182,30 @@ func (t *SimpleChaincode) check_affiliation(stub *shim.ChaincodeStub, cert strin
 //					 name passed.
 //==============================================================================================================================
 
-func (t *SimpleChaincode) get_caller_data(stub *shim.ChaincodeStub) (string, int, error){	
+
+func (t *SimpleChaincode) get_caller_data(stub *shim.ChaincodeStub) ([]byte, error){	
 
 	user, err := t.get_username(stub)
 	if err != nil { 
-		return "", -1, err 
+		return nil, err 
 	}
 																		
 	ecert, err := t.get_ecert(stub, user);					
 	if err != nil { 
-		return "", -1, err 
+		return nil, err 
 	}
 
 	affiliation, err := t.check_affiliation(stub,string(ecert));			
 	if err != nil { 
-		return "", -1, err 
+		return nil, err 
 	}
 
-	return user, affiliation, nil
+	varToReturn := `{ "user": "`+ user + `", "affiliation" : "` + strconv.Itoa(affiliation) + `"}`
+
+	return []byte(varToReturn), nil
+
 }
+
 
 //==============================================================================================================================
 //	 Router Functions
@@ -222,6 +227,8 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 		return t.createWatch(stub,args)
 	} else if function == "add_attachment" {
 		return t.addAttachment(stub,args)
+	} else if function == "get_caller_data" {
+		return t.get_caller_data(stub)
 	}
 
 	fmt.Println("invoke did not find func: " + function)					//error
