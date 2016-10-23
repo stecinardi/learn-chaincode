@@ -227,9 +227,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 		return t.createWatch(stub,args)
 	} else if function == "add_attachment" {
 		return t.addAttachment(stub,args)
-	} else if function == "get_caller_data" {
-		return t.get_caller_data(stub)
-	}
+	} 
 
 	fmt.Println("invoke did not find func: " + function)					//error
 
@@ -246,6 +244,8 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 		return t.read(stub,args)
 	} else if function == "read_all_blocks" {
 		return t.readAllBlocks(stub,args)
+	} else if function == "get_caller_data" {
+		return t.get_caller_data(stub)
 	}
 
 	fmt.Println("query did not find func: " + function)						//error
