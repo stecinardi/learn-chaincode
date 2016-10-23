@@ -32,12 +32,14 @@ import (
 type SimpleChaincode struct {
 }
 
+
 //asset
 type Watch struct {
 	Serial string  	`json:"serial"`
 	Price string 	`json:"price"`
 	Model string 	`json:"model"`
 	Actor string 	`json:"actor"`
+	User User       `json:"user"`
 	Attachments []Attachment `json:"attachments"`
 }
 
@@ -59,6 +61,10 @@ type Actor struct {
 	Name string `json:"name"`
 	Description string `json:"description"`
 	Role Role `json:"role"`
+}
+
+type User struct {
+	CodCliente string `json:"codCliente"`
 }
 
 type User_and_eCert struct {
@@ -96,6 +102,289 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 
 	return nil,nil
 }
+
+
+//==============================================================================================================================
+//	 Router Functions
+//==============================================================================================================================
+//	Invoke - Called on chaincode invoke. Takes a function name passed and calls that function. Converts some
+//		  initial arguments passed to other things for use in the called function e.g. name -> ecert
+//==============================================================================================================================
+
+// Invoke is our entry point to invoke a chaincode function
+func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	fmt.Println("invoke is running " + function)
+
+	// Handle different functions
+	if function == "init" {													//initialize the chaincode state, used as reset
+		return t.Init(stub, "init", args)
+	} else if function == "move_to_next_actor" {
+		return t.moveToNextActor(stub,args)
+	} else if function == "create_watch" {
+		return t.createWatch(stub,args)
+	} else if function == "add_attachment" {
+		return t.addAttachment(stub,args)
+	} else if function == "register_watch" {
+		return t.registerWatch(stub,args)
+	} else if function == "authenticate_watch" {
+		return t.authenticateWatch(stub,args)
+	}  
+
+	fmt.Println("invoke did not find func: " + function)					//error
+
+	return nil, errors.New("Received unknown function invocation")
+}
+
+
+// Query is our entry point for queries
+func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	fmt.Println("query is running " + function)
+
+	// Handle different functions
+	if function == "read" {											//read a variable
+		return t.read(stub,args)
+	} else if function == "read_all_blocks" {
+		return t.readAllBlocks(stub,args)
+	} else if function == "get_caller_data" {
+		return t.get_caller_data(stub)
+	}
+
+	fmt.Println("query did not find func: " + function)						//error
+
+	return nil, errors.New("Received unknown function query")
+}
+
+func (t *SimpleChaincode) read (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+	var key, jsonResp string
+	var err error
+
+	if len(args) != 1 {
+		return nil, errors.New("Incorrect number of arguments. Expecting name of the key to query")
+
+	}
+
+	key = args[0]
+	fmt.Println("key: " + key)	
+	valAsbytes, err := stub.GetState(key)
+
+	 if err != nil {
+        jsonResp = "{\"Error\":\"Failed to get state for " + key + "\"}"
+        return nil, errors.New(jsonResp)
+    }
+
+    return valAsbytes, nil
+}
+
+func (t *SimpleChaincode) readAllBlocks (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+
+	watchAsBytes, err := stub.GetState(watchIndexStr)
+		if err != nil {
+			return nil, errors.New("Failed to get watch index")
+		}
+		
+		return watchAsBytes,nil
+}
+
+func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+	
+	var key = args [0]
+	var jsonBlob = []byte(args[1])
+	
+	watch := unmarshJson(jsonBlob)
+
+	fmt.Println("running write() - actor: " + watch.Actor)
+	fmt.Printf("watch object: %+v", watch)
+	
+
+	//controlliamo se il seriale è già stato registrato in precedenza
+
+	watchIndexAsBytes, err := stub.GetState(watchIndexStr)
+		if err != nil {
+			return nil, errors.New("Failed to get watch index")
+		}
+
+	var watchIndex []string
+	json.Unmarshal(watchIndexAsBytes, &watchIndex)	
+		
+	if stringInSlice(key, watchIndex) {
+		return nil, errors.New("watch serial already exists, Please change serial and please try again")
+	}
+
+	jsonString, err := json.Marshal(watch)
+	if err != nil {
+		fmt.Println("error: ", err)
+	}
+
+	err = stub.PutState(key, jsonString)
+	
+	if err != nil {
+		return nil,err
+	}
+
+	//get index array
+	
+	/*watchAsBytes, err := stub.GetState(watchIndexStr)
+	if err != nil {
+		return nil, errors.New("Failed to get watch index")
+	}
+	
+	var watchIndex []string
+	json.Unmarshal(watchAsBytes, &watchIndex)							//un stringify it aka JSON.parse()
+	*/
+
+	//append
+	watchIndex = append(watchIndex, key)								//add watch name to index list
+	fmt.Println("! watch index: ", watchIndex)
+	jsonAsBytes, _ := json.Marshal(watchIndex)
+	err = stub.PutState(watchIndexStr, jsonAsBytes)						//store name of watch
+
+	fmt.Println("- end create new watch")
+
+	return nil, nil
+}
+
+func (t *SimpleChaincode) registerWatch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+
+	if len(args) != 2 {
+		return nil, errors.New("Incorrect number of arguments. Expecting serial and customer code")
+	}
+
+	var serial = args[0]
+	var codCliente = args[1]
+
+	var user User
+	user.CodCliente = codCliente
+	
+	watchAsBytes, err := stub.GetState(serial)
+	if err != nil {
+		return nil, err
+	}
+	watch := unmarshJson(watchAsBytes)
+	watch.User = user
+
+	jsonAsBytes, err := json.Marshal(watch)
+	if err != nil {
+		fmt.Println("error: ", err)
+	}
+
+	err = stub.PutState(args[0], jsonAsBytes)								//rewrite the watch with id as key
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+	
+}
+
+func (t *SimpleChaincode) authenticateWatch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+
+	var serial = args[0]
+	var codCliente = args[1]
+
+	watchAsBytes, err := stub.GetState(serial)
+	if err != nil {
+		return nil, err
+	}
+	watch := unmarshJson(watchAsBytes)
+
+	user := User{}
+	if watch.User == user && watch.User.CodCliente == codCliente {
+		return []byte("OK"), nil
+	} else {
+		return []byte("KO"), nil
+	}
+}
+
+
+func (t *SimpleChaincode) addAttachment (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+		
+	fmt.Println("running addAttachment() for the watch with serial: " + args[0])
+
+	if len(args) != 3 {
+			return nil, errors.New("Incorrect number of arguments. Expecting serial, attachment id and attachment URL")
+	}
+
+	var attachment Attachment
+	serialWatch := args[0] // id orologio
+	attachment.Id = args[1]
+	attachment.URL = args[2]
+	watchAsBytes, err := stub.GetState(serialWatch)
+	if err != nil {
+		return nil, err
+	}
+
+	watch := unmarshJson(watchAsBytes)
+	watch.Attachments = append (watch.Attachments,attachment)
+
+	jsonAsBytes, err := json.Marshal(watch)
+	if err != nil {
+		fmt.Println("error: ", err)
+	}
+
+	err = stub.PutState(args[0], jsonAsBytes)								//rewrite the watch with id as key
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+
+}
+
+func (t *SimpleChaincode) moveToNextActor (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+	
+	if len(args) != 2 {
+		return nil, errors.New("Incorrect number of arguments. Expecting serial and next actor as arguments")
+	}
+
+	idWatch := args[0] // id orologio
+	nextActor := args[1]
+
+	fmt.Println("running moveToNextActor() for the watch with serial: " + args[0])
+
+	var watch Watch
+
+	watchAsBytes, err := stub.GetState(idWatch)
+	
+	watch = unmarshJson(watchAsBytes)
+	watch.Actor = nextActor
+	if err != nil {
+		return nil, err
+	}
+	jsonString, err := json.Marshal(watch)
+	if err != nil {
+		fmt.Println("error: ", err)
+	}
+
+	err = stub.PutState(watch.Serial, jsonString)
+	
+	if err != nil {
+		return nil,err
+	}
+
+	fmt.Println("Watch with serial: " + args[0] + " moved to " + nextActor)
+
+	return nil,nil
+
+}
+
+func  unmarshJson (jsonAsByte []byte) (Watch) {
+	var watch Watch
+	err := json.Unmarshal(jsonAsByte, &watch)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	return watch
+}
+
+func stringInSlice(a string, list []string) bool {
+    for _, b := range list {
+        if b == a {
+            return true
+        }
+    }
+    return false
+}
+
 
 //==============================================================================================================================
 //	 General Functions
@@ -206,228 +495,4 @@ func (t *SimpleChaincode) get_caller_data(stub *shim.ChaincodeStub) ([]byte, err
 
 }
 
-
-//==============================================================================================================================
-//	 Router Functions
-//==============================================================================================================================
-//	Invoke - Called on chaincode invoke. Takes a function name passed and calls that function. Converts some
-//		  initial arguments passed to other things for use in the called function e.g. name -> ecert
-//==============================================================================================================================
-
-// Invoke is our entry point to invoke a chaincode function
-func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	fmt.Println("invoke is running " + function)
-
-	// Handle different functions
-	if function == "init" {													//initialize the chaincode state, used as reset
-		return t.Init(stub, "init", args)
-	} else if function == "move_to_next_actor" {
-		return t.moveToNextActor(stub,args)
-	} else if function == "create_watch" {
-		return t.createWatch(stub,args)
-	} else if function == "add_attachment" {
-		return t.addAttachment(stub,args)
-	} 
-
-	fmt.Println("invoke did not find func: " + function)					//error
-
-	return nil, errors.New("Received unknown function invocation")
-}
-
-
-// Query is our entry point for queries
-func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	fmt.Println("query is running " + function)
-
-	// Handle different functions
-	if function == "read" {											//read a variable
-		return t.read(stub,args)
-	} else if function == "read_all_blocks" {
-		return t.readAllBlocks(stub,args)
-	} else if function == "get_caller_data" {
-		return t.get_caller_data(stub)
-	}
-
-	fmt.Println("query did not find func: " + function)						//error
-
-	return nil, errors.New("Received unknown function query")
-}
-
-func (t *SimpleChaincode) read (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	var key, jsonResp string
-	var err error
-
-	if len(args) != 1 {
-		return nil, errors.New("Incorrect number of arguments. Expecting name of the key to query")
-
-	}
-
-	key = args[0]
-	fmt.Println("key: " + key)	
-	valAsbytes, err := stub.GetState(key)
-
-	 if err != nil {
-        jsonResp = "{\"Error\":\"Failed to get state for " + key + "\"}"
-        return nil, errors.New(jsonResp)
-    }
-
-    return valAsbytes, nil
-}
-
-func (t *SimpleChaincode) readAllBlocks (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-
-	watchAsBytes, err := stub.GetState(watchIndexStr)
-		if err != nil {
-			return nil, errors.New("Failed to get watch index")
-		}
-		
-		return watchAsBytes,nil
-}
-
-func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	
-	var jsonBlob = []byte(args[1])
-	
-	watch := unmarshJson(jsonBlob)
-
-	fmt.Println("running write() - actor: " + watch.Actor)
-	fmt.Printf("watch object: %+v", watch)
-	
-	key := args [0]
-
-	//controlliamo se il seriale è già stato registrato in precedenza
-
-	watchIndexAsBytes, err := stub.GetState(watchIndexStr)
-		if err != nil {
-			return nil, errors.New("Failed to get watch index")
-		}
-
-	var watchIndex []string
-	json.Unmarshal(watchIndexAsBytes, &watchIndex)	
-		
-	if stringInSlice(key, watchIndex) {
-		return nil, errors.New("watch serial already exists, Please change serial and please try again")
-	}
-
-	jsonString, err := json.Marshal(watch)
-	if err != nil {
-		fmt.Println("error: ", err)
-	}
-
-	err = stub.PutState(key, jsonString)
-	
-	if err != nil {
-		return nil,err
-	}
-
-	//get index array
-	
-	/*watchAsBytes, err := stub.GetState(watchIndexStr)
-	if err != nil {
-		return nil, errors.New("Failed to get watch index")
-	}
-	
-	var watchIndex []string
-	json.Unmarshal(watchAsBytes, &watchIndex)							//un stringify it aka JSON.parse()
-	*/
-	
-	//append
-	watchIndex = append(watchIndex, key)								//add watch name to index list
-	fmt.Println("! watch index: ", watchIndex)
-	jsonAsBytes, _ := json.Marshal(watchIndex)
-	err = stub.PutState(watchIndexStr, jsonAsBytes)						//store name of watch
-
-	fmt.Println("- end create new watch")
-
-	return nil, nil
-}
-
-func (t *SimpleChaincode) addAttachment (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-		
-	fmt.Println("running addAttachment() for the watch with serial: " + args[0])
-
-	if len(args) != 3 {
-			return nil, errors.New("Incorrect number of arguments. Expecting serial, attachment id and attachment URL")
-	}
-
-	var attachment Attachment
-	serialWatch := args[0] // id orologio
-	attachment.Id = args[1]
-	attachment.URL = args[2]
-	watchAsBytes, err := stub.GetState(serialWatch)
-	if err != nil {
-		return nil, err
-	}
-
-	watch := unmarshJson(watchAsBytes)
-	watch.Attachments = append (watch.Attachments,attachment)
-
-	jsonAsBytes, err := json.Marshal(watch)
-	if err != nil {
-		fmt.Println("error: ", err)
-	}
-
-	err = stub.PutState(args[0], jsonAsBytes)								//rewrite the watch with id as key
-	if err != nil {
-		return nil, err
-	}
-
-	return nil, nil
-
-}
-
-func (t *SimpleChaincode) moveToNextActor (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	
-	if len(args) != 2 {
-		return nil, errors.New("Incorrect number of arguments. Expecting serial and next actor as arguments")
-	}
-
-	idWatch := args[0] // id orologio
-	nextActor := args[1]
-
-	fmt.Println("running moveToNextActor() for the watch with serial: " + args[0])
-
-	var watch Watch
-
-	watchAsBytes, err := stub.GetState(idWatch)
-	
-	watch = unmarshJson(watchAsBytes)
-	watch.Actor = nextActor
-	if err != nil {
-		return nil, err
-	}
-	jsonString, err := json.Marshal(watch)
-	if err != nil {
-		fmt.Println("error: ", err)
-	}
-
-	err = stub.PutState(watch.Serial, jsonString)
-	
-	if err != nil {
-		return nil,err
-	}
-
-	fmt.Println("Watch with serial: " + args[0] + " moved to " + nextActor)
-
-	return nil,nil
-
-}
-
-func  unmarshJson (jsonAsByte []byte) (Watch) {
-	var watch Watch
-	err := json.Unmarshal(jsonAsByte, &watch)
-	if err != nil {
-		fmt.Println("error:", err)
-	}
-	return watch
-}
-
-func stringInSlice(a string, list []string) bool {
-    for _, b := range list {
-        if b == a {
-            return true
-        }
-    }
-    return false
-}
 
