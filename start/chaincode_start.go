@@ -295,6 +295,20 @@ func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) 
 	
 	key := args [0]
 
+	//controlliamo se il seriale è già stato registrato in precedenza
+
+	watchIndexAsBytes, err := stub.GetState(watchIndexStr)
+		if err != nil {
+			return nil, errors.New("Failed to get watch index")
+		}
+
+	var watchIndex []string
+	json.Unmarshal(watchIndexAsBytes, &watchIndex)	
+		
+	if stringInSlice(key, watchIndex) {
+		return nil, errors.New("watch serial already exists, Please change serial and please try again")
+	}
+
 	jsonString, err := json.Marshal(watch)
 	if err != nil {
 		fmt.Println("error: ", err)
@@ -306,15 +320,16 @@ func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) 
 		return nil,err
 	}
 
-	watchAsBytes, err := stub.GetState(watchIndexStr)
+	//get index array
+	
+	/*watchAsBytes, err := stub.GetState(watchIndexStr)
 	if err != nil {
 		return nil, errors.New("Failed to get watch index")
 	}
 	
-	//get index array
-
 	var watchIndex []string
 	json.Unmarshal(watchAsBytes, &watchIndex)							//un stringify it aka JSON.parse()
+	*/
 	
 	//append
 	watchIndex = append(watchIndex, key)								//add watch name to index list
@@ -407,7 +422,12 @@ func  unmarshJson (jsonAsByte []byte) (Watch) {
 	return watch
 }
 
-func insertNewBlockIndex (serial string) {
-
+func stringInSlice(a string, list []string) bool {
+    for _, b := range list {
+        if b == a {
+            return true
+        }
+    }
+    return false
 }
 
