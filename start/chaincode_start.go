@@ -201,11 +201,9 @@ func (t *SimpleChaincode) authenticateWatch (stub *shim.ChaincodeStub, args []st
 	}
 	watch := unmarshJson(watchAsBytes)
 
-	user := User{}
-
 	var response Response
 
-	if watch.User != user && watch.User.CodCliente == codCliente {
+	if watch.User.CodCliente == codCliente {
 		response.Status = 0
 		response.Message = "OK"
 	} else {
