@@ -72,6 +72,11 @@ type User_and_eCert struct {
 	eCert string `json:"ecert"`
 }
 
+type Response struct {
+	Status int `json:"status"`
+	Message string `json:"message"`
+}
+
 var watchIndexStr = "_watchindex"
 
 // ============================================================================================================================
@@ -207,7 +212,8 @@ func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) 
 	json.Unmarshal(watchIndexAsBytes, &watchIndex)	
 		
 	if stringInSlice(key, watchIndex) {
-		return nil, errors.New("watch serial already exists, Please change serial and please try again")
+		jsonErrString := `{"success:" "-1", "msg:": "Watch serial already exists, Please change serial and please try again "}`
+		return []byte(jsonErrString), nil
 	}
 
 	jsonString, err := json.Marshal(watch)
@@ -288,11 +294,22 @@ func (t *SimpleChaincode) authenticateWatch (stub *shim.ChaincodeStub, args []st
 	watch := unmarshJson(watchAsBytes)
 
 	user := User{}
+
+	var response Response
+	response.Status = 0
+
 	if watch.User == user && watch.User.CodCliente == codCliente {
-		return []byte("OK"), nil
+		response.Message = "OK"
 	} else {
-		return []byte("KO"), nil
+		response.Message = "KO"
 	}
+
+	jsonAsBytes, err := json.Marshal(response)
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonAsBytes, nil
 }
 
 
