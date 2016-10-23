@@ -204,11 +204,12 @@ func (t *SimpleChaincode) authenticateWatch (stub *shim.ChaincodeStub, args []st
 	user := User{}
 
 	var response Response
-	response.Status = 0
 
-	if watch.User == user && watch.User.CodCliente == codCliente {
+	if watch.User != user && watch.User.CodCliente == codCliente {
+		response.Status = 0
 		response.Message = "OK"
 	} else {
+		response.Status = -1
 		response.Message = "KO"
 	}
 
