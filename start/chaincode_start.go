@@ -131,9 +131,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 		return t.addAttachment(stub,args)
 	} else if function == "register_watch" {
 		return t.registerWatch(stub,args)
-	} else if function == "authenticate_watch" {
-		return t.authenticateWatch(stub,args)
-	}  
+	} 
 
 	fmt.Println("invoke did not find func: " + function)					//error
 
@@ -152,7 +150,9 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 		return t.readAllBlocks(stub,args)
 	} else if function == "get_caller_data" {
 		return t.get_caller_data(stub)
-	}
+	} else if function == "authenticate_watch" {
+		return t.authenticateWatch(stub,args)
+	}  
 
 	fmt.Println("query did not find func: " + function)						//error
 
@@ -188,6 +188,36 @@ func (t *SimpleChaincode) readAllBlocks (stub *shim.ChaincodeStub, args []string
 		}
 		
 		return watchAsBytes,nil
+}
+
+func (t *SimpleChaincode) authenticateWatch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+
+	var serial = args[0]
+	var codCliente = args[1]
+
+	watchAsBytes, err := stub.GetState(serial)
+	if err != nil {
+		return nil, err
+	}
+	watch := unmarshJson(watchAsBytes)
+
+	user := User{}
+
+	var response Response
+	response.Status = 0
+
+	if watch.User == user && watch.User.CodCliente == codCliente {
+		response.Message = "OK"
+	} else {
+		response.Message = "KO"
+	}
+
+	jsonAsBytes, err := json.Marshal(response)
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonAsBytes, nil
 }
 
 func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
@@ -281,37 +311,6 @@ func (t *SimpleChaincode) registerWatch (stub *shim.ChaincodeStub, args []string
 	return nil, nil
 	
 }
-
-func (t *SimpleChaincode) authenticateWatch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-
-	var serial = args[0]
-	var codCliente = args[1]
-
-	watchAsBytes, err := stub.GetState(serial)
-	if err != nil {
-		return nil, err
-	}
-	watch := unmarshJson(watchAsBytes)
-
-	user := User{}
-
-	var response Response
-	response.Status = 0
-
-	if watch.User == user && watch.User.CodCliente == codCliente {
-		response.Message = "OK"
-	} else {
-		response.Message = "KO"
-	}
-
-	jsonAsBytes, err := json.Marshal(response)
-	if err != nil {
-		return nil, err
-	}
-
-	return jsonAsBytes, nil
-}
-
 
 func (t *SimpleChaincode) addAttachment (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 		
