@@ -35,11 +35,11 @@ type SimpleChaincode struct {
 
 //asset
 type Watch struct {
-	Serial string  	`json:"serial"`
-	Price string 	`json:"price"`
-	Model string 	`json:"model"`
-	Actor string 	`json:"actor"`
-	User User       `json:"user"`
+	Serial string  	   `json:"serial"`
+	Price string 	   `json:"price"`
+	Model string 	   `json:"model"`
+	Actor string 	   `json:"actor"`
+	Authenticated bool  `json:"authenticated"`
 	Attachments []Attachment `json:"attachments"`
 }
 
@@ -56,7 +56,6 @@ const (
 	retailer		= 3
 )
 
-
 type Actor struct {
 	Name string `json:"name"`
 	Description string `json:"description"`
@@ -65,6 +64,7 @@ type Actor struct {
 
 type User struct {
 	CodCliente string `json:"codCliente"`
+	Watches []string `json:"watches"` //contiene i seriali degli orologi in suo possesso
 }
 
 type User_and_eCert struct {
@@ -78,6 +78,7 @@ type Response struct {
 }
 
 var watchIndexStr = "_watchindex"
+var userIndexStr = "_userindex"
 
 // ============================================================================================================================
 // Main
@@ -93,21 +94,26 @@ func main() {
 func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	
 //inizializzo la lista di indici dei vari orologi contenuti nella blockchain	
+	var err error
 	var empty []string
-	jsonAsBytes, _ := json.Marshal(empty)								//marshal an emtpy array of strings to clear the index
-	err := stub.PutState(watchIndexStr, jsonAsBytes)
+	watchIndexJsonAsBytes, _ := json.Marshal(empty)								//marshal an emtpy array of strings to clear the index
+	err = stub.PutState(watchIndexStr, watchIndexJsonAsBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	userIndexJsonAsBytes, _ := json.Marshal(empty)								//marshal an emtpy array of strings to clear the index
+	err = stub.PutState(userIndexStr, userIndexJsonAsBytes)
 	if err != nil {
 		return nil, err
 	}
 
 	for i:=0; i < len(args); i=i+2 {
-		
 		t.add_ecert(stub, args[i], args[i+1])													
 	}
 
 	return nil,nil
 }
-
 
 //==============================================================================================================================
 //	 Router Functions
@@ -146,8 +152,10 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 	// Handle different functions
 	if function == "read" {											//read a variable
 		return t.read(stub,args)
-	} else if function == "read_all_blocks" {
-		return t.readAllBlocks(stub,args)
+	} else if function == "read_all_watches" {
+		return t.readAllWatches(stub,args)
+	}else if function == "read_all_users" {
+		return t.readAllUsers(stub,args)
 	} else if function == "get_caller_data" {
 		return t.get_caller_data(stub)
 	} else if function == "authenticate_watch" {
@@ -180,7 +188,7 @@ func (t *SimpleChaincode) read (stub *shim.ChaincodeStub, args []string) ([]byte
     return valAsbytes, nil
 }
 
-func (t *SimpleChaincode) readAllBlocks (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode) readAllWatches (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 
 	watchAsBytes, err := stub.GetState(watchIndexStr)
 		if err != nil {
@@ -190,26 +198,37 @@ func (t *SimpleChaincode) readAllBlocks (stub *shim.ChaincodeStub, args []string
 		return watchAsBytes,nil
 }
 
+func (t *SimpleChaincode) readAllUsers (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+
+	userAsBytes, err := stub.GetState(userIndexStr)
+		if err != nil {
+			return nil, errors.New("Failed to get watch index")
+		}
+		return userAsBytes,nil
+}
+
 func (t *SimpleChaincode) authenticateWatch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 
 	var serial = args[0]
 	var codCliente = args[1]
 
-	watchAsBytes, err := stub.GetState(serial)
+	userAsBytes, err := stub.GetState(codCliente)
 	if err != nil {
 		return nil, err
 	}
-	watch := unmarshJson(watchAsBytes)
+	user := unmarshUserJson(userAsBytes)
 
 	var response Response
 
-	if watch.User.CodCliente == codCliente {
-		response.Status = 0
-		response.Message = "OK"
-	} else {
+	if !stringInSlice(codCliente, user.Watches) {
+		
 		response.Status = -1
-		response.Message = "KO"
+		response.Message = "The user with customer code " + codCliente + " DOES NOT own the watch with serial " + serial
 	}
+
+		response.Status = 0
+		response.Message = "The user with customer code " + codCliente + " owns the watch with serial " + serial
+
 
 	jsonAsBytes, err := json.Marshal(response)
 	if err != nil {
@@ -224,11 +243,11 @@ func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) 
 	var key = args [0]
 	var jsonBlob = []byte(args[1])
 	
-	watch := unmarshJson(jsonBlob)
+	watch := unmarshWatchJson(jsonBlob)
+	watch.Authenticated = false
 
 	fmt.Println("running write() - actor: " + watch.Actor)
 	fmt.Printf("watch object: %+v", watch)
-	
 
 	//controlliamo se il seriale è già stato registrato in precedenza
 
@@ -238,11 +257,10 @@ func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) 
 		}
 
 	var watchIndex []string
-	json.Unmarshal(watchIndexAsBytes, &watchIndex)	
+	json.Unmarshal(watchIndexAsBytes, &watchIndex)
 		
 	if stringInSlice(key, watchIndex) {
-		jsonErrString := `{"success:" "-1", "msg:": "Watch serial already exists, Please change serial and please try again "}`
-		return []byte(jsonErrString), nil
+		return nil, errors.New("Watch serial already exists. Change serial number and please try again")
 	}
 
 	jsonString, err := json.Marshal(watch)
@@ -268,6 +286,7 @@ func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) 
 	*/
 
 	//append
+
 	watchIndex = append(watchIndex, key)								//add watch name to index list
 	fmt.Println("! watch index: ", watchIndex)
 	jsonAsBytes, _ := json.Marshal(watchIndex)
@@ -285,27 +304,76 @@ func (t *SimpleChaincode) registerWatch (stub *shim.ChaincodeStub, args []string
 	}
 
 	var serial = args[0]
-	var codCliente = args[1]
 
-	var user User
-	user.CodCliente = codCliente
-	
+	//verifichiamo l'esistenza dell'orologio all'interno della blockchain
+
+	watchIndexAsBytes, err := stub.GetState(watchIndexStr)
+	if err != nil {
+		return nil, errors.New("Failed to get watch index")
+	}
+
+	var watchIndex []string
+	json.Unmarshal(watchIndexAsBytes, &watchIndex)
+
+	if !stringInSlice(serial, watchIndex) {
+		return nil,errors.New ("Watch serial not exists. Verify the serial and please try again")
+	}
+
+	//verifichiamo lo stato si autenticazione dell'orologio - è già stato autenticato da un altro utente?
 	watchAsBytes, err := stub.GetState(serial)
 	if err != nil {
 		return nil, err
 	}
-	watch := unmarshJson(watchAsBytes)
-	watch.User = user
+	watch := unmarshWatchJson(watchAsBytes)
+	if watch.Authenticated == true {
+		return nil,errors.New ("Watch serial already registered")
+	}
 
-	jsonAsBytes, err := json.Marshal(watch)
+	//registriamo la nuova info sull'autenticazione dell'orologio su blockchain
+	watch.Authenticated = true
+	jsonString, err := json.Marshal(watch)
 	if err != nil {
 		fmt.Println("error: ", err)
 	}
 
-	err = stub.PutState(args[0], jsonAsBytes)								//rewrite the watch with id as key
+	err = stub.PutState(serial, jsonString)
+	
+	if err != nil {
+		return nil,err
+	}
+
+	//registriamo il nuovo utente e aggiungiamo l'orologio nella lista 
+	//degli orologi in suo possesso e autenticati
+
+	var codCliente = args[1]
+	var user User
+	user.CodCliente = codCliente
+	user.Watches = append (user.Watches,serial)
+
+	jsonUserAsBytes, err := json.Marshal(user)
+	if err != nil {
+		fmt.Println("error: ", err)
+	}
+
+	err = stub.PutState(codCliente, jsonUserAsBytes)								//rewrite the watch with id as key
 	if err != nil {
 		return nil, err
 	}
+
+	//aggiungo il nuovo codCliente all'indice degli utenti
+
+	userIndexAsBytes, err := stub.GetState(userIndexStr)
+	if err != nil {
+		return nil, errors.New("Failed to get watch index")
+	}
+	var userIndex []string
+	json.Unmarshal(userIndexAsBytes, &userIndex)
+	userIndex = append(userIndex, codCliente)								//add customer code to index list
+	fmt.Println("! user index: ", userIndex)
+	jsonIndexUserAsBytes, _ := json.Marshal(userIndex)
+	err = stub.PutState(userIndexStr, jsonIndexUserAsBytes)				
+
+	fmt.Println("- end registerWatch function -")
 
 	return nil, nil
 	
@@ -328,7 +396,7 @@ func (t *SimpleChaincode) addAttachment (stub *shim.ChaincodeStub, args []string
 		return nil, err
 	}
 
-	watch := unmarshJson(watchAsBytes)
+	watch := unmarshWatchJson(watchAsBytes)
 	watch.Attachments = append (watch.Attachments,attachment)
 
 	jsonAsBytes, err := json.Marshal(watch)
@@ -360,7 +428,7 @@ func (t *SimpleChaincode) moveToNextActor (stub *shim.ChaincodeStub, args []stri
 
 	watchAsBytes, err := stub.GetState(idWatch)
 	
-	watch = unmarshJson(watchAsBytes)
+	watch = unmarshWatchJson(watchAsBytes)
 	watch.Actor = nextActor
 	if err != nil {
 		return nil, err
@@ -382,13 +450,22 @@ func (t *SimpleChaincode) moveToNextActor (stub *shim.ChaincodeStub, args []stri
 
 }
 
-func  unmarshJson (jsonAsByte []byte) (Watch) {
+func  unmarshWatchJson (jsonAsByte []byte) (Watch) {
 	var watch Watch
 	err := json.Unmarshal(jsonAsByte, &watch)
 	if err != nil {
 		fmt.Println("error:", err)
 	}
 	return watch
+}
+
+func  unmarshUserJson (jsonAsByte []byte) (User) {
+	var user User
+	err := json.Unmarshal(jsonAsByte, &user)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	return user
 }
 
 func stringInSlice(a string, list []string) bool {
