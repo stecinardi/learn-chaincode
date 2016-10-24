@@ -376,8 +376,9 @@ func (t *SimpleChaincode) registerWatch (stub *shim.ChaincodeStub, args []string
 	jsonUserAsBytes, err := json.Marshal(user)
 	if err != nil {
 		fmt.Println("error: ", err)
-		fmt.Printf("! user index: %+v ", user)
 	}
+
+	fmt.Printf("! user object: %+v ", user)
 
 	err = stub.PutState(codCliente, jsonUserAsBytes)								//rewrite the watch with id as key
 	if err != nil {
