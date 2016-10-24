@@ -220,13 +220,13 @@ func (t *SimpleChaincode) authenticateWatch (stub *shim.ChaincodeStub, args []st
 
 	var response Response
 
-	if !stringInSlice(codCliente, user.Watches) {
+	if !stringInSlice(serial, user.Watches) {
 		
 		response.Status = -1
-		response.Message = "The user with customer code " + codCliente + " DOES NOT own the watch with serial " + serial
+		response.Message = "The user with customer code " + user.CodCliente + " DOES NOT own the watch with serial " + serial
 	} else {
 		response.Status = 0
-		response.Message = "The user with customer code " + codCliente + " owns the watch with serial " + serial
+		response.Message = "The user with customer code " + user.CodCliente + " owns the watch with serial " + serial
 	}
 
 	jsonAsBytes, err := json.Marshal(response)
