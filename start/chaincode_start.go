@@ -150,9 +150,11 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 	fmt.Println("query is running " + function)
 
 	// Handle different functions
-	if function == "read" {											//read a variable
-		return t.read(stub,args)
-	} else if function == "read_all_watches" {
+	if function == "read_watch" {											//read a variable
+		return t.readWatch(stub,args)
+	} else if function == "read_user" {
+		return t.readUser(stub,args)
+	}else if function == "read_all_watches" {
 		return t.readAllWatches(stub,args)
 	}else if function == "read_all_users" {
 		return t.readAllUsers(stub,args)
@@ -167,7 +169,7 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 	return nil, errors.New("Received unknown function query")
 }
 
-func (t *SimpleChaincode) read (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode) readWatch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	var key, jsonResp string
 	var err error
 
@@ -187,6 +189,28 @@ func (t *SimpleChaincode) read (stub *shim.ChaincodeStub, args []string) ([]byte
 
     return valAsbytes, nil
 }
+
+func (t *SimpleChaincode) readUser (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+	var codCliente, jsonResp string
+	var err error
+
+	if len(args) != 1 {
+		return nil, errors.New("Incorrect number of arguments. Expecting name of the key to query")
+
+	}
+
+	codCliente = args[0]
+	fmt.Println("codCliente: " + codCliente)	
+	valAsbytes, err := stub.GetState(codCliente)
+
+	 if err != nil {
+        jsonResp = "{\"Error\":\"Failed to get state for " + codCliente + "\"}"
+        return nil, errors.New(jsonResp)
+    }
+
+    return valAsbytes, nil
+}
+
 
 func (t *SimpleChaincode) readAllWatches (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 
