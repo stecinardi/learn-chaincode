@@ -189,13 +189,32 @@ func (t *SimpleChaincode) read (stub *shim.ChaincodeStub, args []string) ([]byte
 }
 
 func (t *SimpleChaincode) readAllWatches (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+	var watchIndex []string
 
-	watchAsBytes, err := stub.GetState(watchIndexStr)
+	watchesAsBytes, err := stub.GetState(watchIndexStr)
 		if err != nil {
 			return nil, errors.New("Failed to get watch index")
 		}
+
+	json.Unmarshal(watchesAsBytes, &watchIndex)
+
+	var allWatches []Watch
+	for _, x := range watchIndex {
+		var watch Watch 
+		watchAsBytes, err := stub.GetState(x)
+		if err != nil {
+			return nil, errors.New("Failed to get watch")
+		}
+		json.Unmarshal(watchAsBytes, &watch)
+        allWatches = append (allWatches,watch)
+    }
+
+    jsonAsBytes, err := json.Marshal(allWatches)
+	if err != nil {
+		return nil, err
+	}
 		
-		return watchAsBytes,nil
+	return jsonAsBytes,nil
 }
 
 func (t *SimpleChaincode) readAllUsers (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
