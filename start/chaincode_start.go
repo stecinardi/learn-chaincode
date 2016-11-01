@@ -604,4 +604,5 @@ func (t *SimpleChaincode) get_caller_data(stub *shim.ChaincodeStub) ([]byte, err
 	varToReturn := `{ "user": "`+ user + `", "affiliation" : "` + strconv.Itoa(affiliation) + `"}`
 
 	return []byte(varToReturn), nil
+	
 }
