@@ -39,6 +39,7 @@ type Watch struct {
 	Price string 	   `json:"price"`
 	Model string 	   `json:"model"`
 	Actor string 	   `json:"actor"`
+	Status int			`json:"status"`
 	Authenticated bool  `json:"authenticated"`
 	Attachments []Attachment `json:"attachments"`
 }
@@ -48,7 +49,7 @@ type Attachment struct {
 	URL string 		`json:"url"`
 }
 
-type Role string  
+type Role string
 
 const (
 	manifacturer 	= 1
@@ -92,8 +93,8 @@ func main() {
 
 // Init resets all the things
 func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	
-//inizializzo la lista di indici dei vari orologi contenuti nella blockchain	
+
+//inizializzo la lista di indici dei vari orologi contenuti nella blockchain
 	var err error
 	var empty []string
 	watchIndexJsonAsBytes, _ := json.Marshal(empty)								//marshal an emtpy array of strings to clear the index
@@ -109,7 +110,7 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 	}
 
 	for i:=0; i < len(args); i=i+2 {
-		t.add_ecert(stub, args[i], args[i+1])													
+		t.add_ecert(stub, args[i], args[i+1])
 	}
 
 	return nil,nil
@@ -137,7 +138,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 		return t.addAttachment(stub,args)
 	} else if function == "register_watch" {
 		return t.registerWatch(stub,args)
-	} 
+	}
 
 	fmt.Println("invoke did not find func: " + function)					//error
 
@@ -160,7 +161,7 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 		return t.get_caller_data(stub)
 	} else if function == "authenticate_watch" {
 		return t.authenticateWatch(stub,args)
-	}  
+	}
 
 	fmt.Println("query did not find func: " + function)						//error
 
@@ -177,7 +178,7 @@ func (t *SimpleChaincode) read (stub *shim.ChaincodeStub, args []string) ([]byte
 	}
 
 	key = args[0]
-	fmt.Println("key: " + key)	
+	fmt.Println("key: " + key)
 	valAsbytes, err := stub.GetState(key)
 
 	 if err != nil {
@@ -189,7 +190,7 @@ func (t *SimpleChaincode) read (stub *shim.ChaincodeStub, args []string) ([]byte
 }
 
 func (t *SimpleChaincode) readAllWatches (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	
+
 	watchIndexAsBytes, err := stub.GetState(watchIndexStr)
 		if err != nil {
 			return nil, errors.New("Failed to get watch index")
@@ -200,7 +201,7 @@ func (t *SimpleChaincode) readAllWatches (stub *shim.ChaincodeStub, args []strin
 
 	var allWatches []Watch
 	for _, x := range watchIndex {
-		var watch Watch 
+		var watch Watch
 		watchAsBytes, err := stub.GetState(x)
 		if err != nil {
 			return nil, errors.New("Failed to get watch")
@@ -213,7 +214,7 @@ func (t *SimpleChaincode) readAllWatches (stub *shim.ChaincodeStub, args []strin
 	if err != nil {
 		return nil, err
 	}
-		
+
 	return jsonAsBytes,nil
 }
 
@@ -240,7 +241,7 @@ func (t *SimpleChaincode) authenticateWatch (stub *shim.ChaincodeStub, args []st
 	var response Response
 
 	if !stringInSlice(serial, user.Watches) {
-		
+
 		response.Status = -1
 		response.Message = "The user with customer code " + codCliente + " DOES NOT own the watch with serial " + serial
 	} else {
@@ -257,12 +258,13 @@ func (t *SimpleChaincode) authenticateWatch (stub *shim.ChaincodeStub, args []st
 }
 
 func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	
+
 	var key = args [0]
 	var jsonBlob = []byte(args[1])
-	
+
 	watch := unmarshWatchJson(jsonBlob)
 	watch.Authenticated = false
+	watch.Status = 0
 
 	fmt.Println("running createWatch() - actor: " + watch.Actor)
 	fmt.Printf("watch object: %+v", watch)
@@ -276,7 +278,7 @@ func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) 
 
 	var watchIndex []string
 	json.Unmarshal(watchIndexAsBytes, &watchIndex)
-		
+
 	if stringInSlice(key, watchIndex) {
 		return nil, errors.New("Watch serial already exists. Change serial number and please try again")
 	}
@@ -287,18 +289,18 @@ func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) 
 	}
 
 	err = stub.PutState(key, jsonString)
-	
+
 	if err != nil {
 		return nil,err
 	}
 
 	//get index array
-	
+
 	/*watchAsBytes, err := stub.GetState(watchIndexStr)
 	if err != nil {
 		return nil, errors.New("Failed to get watch index")
 	}
-	
+
 	var watchIndex []string
 	json.Unmarshal(watchAsBytes, &watchIndex)							//un stringify it aka JSON.parse()
 	*/
@@ -355,12 +357,12 @@ func (t *SimpleChaincode) registerWatch (stub *shim.ChaincodeStub, args []string
 	}
 
 	err = stub.PutState(serial, jsonString)
-	
+
 	if err != nil {
 		return nil,err
 	}
 
-	//registriamo il nuovo utente e aggiungiamo l'orologio nella lista 
+	//registriamo il nuovo utente e aggiungiamo l'orologio nella lista
 	//degli orologi in suo possesso e autenticati
 
 	var codCliente = args[1]
@@ -391,16 +393,16 @@ func (t *SimpleChaincode) registerWatch (stub *shim.ChaincodeStub, args []string
 	userIndex = append(userIndex, codCliente)								//add customer code to index list
 	fmt.Println("! user index: ", userIndex)
 	jsonIndexUserAsBytes, _ := json.Marshal(userIndex)
-	err = stub.PutState(userIndexStr, jsonIndexUserAsBytes)				
+	err = stub.PutState(userIndexStr, jsonIndexUserAsBytes)
 
 	fmt.Println("- end registerWatch function -")
 
 	return nil, nil
-	
+
 }
 
 func (t *SimpleChaincode) addAttachment (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-		
+
 	fmt.Println("running addAttachment() for the watch with serial: " + args[0])
 
 	if len(args) != 3 {
@@ -434,7 +436,7 @@ func (t *SimpleChaincode) addAttachment (stub *shim.ChaincodeStub, args []string
 }
 
 func (t *SimpleChaincode) moveToNextActor (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	
+
 	if len(args) != 2 {
 		return nil, errors.New("Incorrect number of arguments. Expecting serial and next actor as arguments")
 	}
@@ -447,9 +449,10 @@ func (t *SimpleChaincode) moveToNextActor (stub *shim.ChaincodeStub, args []stri
 	var watch Watch
 
 	watchAsBytes, err := stub.GetState(idWatch)
-	
+
 	watch = unmarshWatchJson(watchAsBytes)
 	watch.Actor = nextActor
+	watch.Status = watch.Status + 1
 	if err != nil {
 		return nil, err
 	}
@@ -459,7 +462,7 @@ func (t *SimpleChaincode) moveToNextActor (stub *shim.ChaincodeStub, args []stri
 	}
 
 	err = stub.PutState(watch.Serial, jsonString)
-	
+
 	if err != nil {
 		return nil,err
 	}
@@ -505,11 +508,11 @@ func stringInSlice(a string, list []string) bool {
 //				 for that user. Returns the ecert as retrived including html encoding.
 //==============================================================================================================================
 func (t *SimpleChaincode) get_ecert(stub *shim.ChaincodeStub, name string) ([]byte, error) {
-	
+
 	ecert, err := stub.GetState(name)
 
 	if err != nil { return nil, errors.New("Couldn't retrieve ecert for user " + name) }
-	
+
 	return ecert, nil
 }
 
@@ -518,14 +521,14 @@ func (t *SimpleChaincode) get_ecert(stub *shim.ChaincodeStub, name string) ([]by
 //==============================================================================================================================
 
 func (t *SimpleChaincode) add_ecert(stub *shim.ChaincodeStub, name string, ecert string) ([]byte, error) {
-	
-	
+
+
 	err := stub.PutState(name, []byte(ecert))
 
 	if err == nil {
 		return nil, errors.New("Error storing eCert for user " + name + " identity: " + ecert)
 	}
-	
+
 	return nil, nil
 
 }
@@ -538,15 +541,15 @@ func (t *SimpleChaincode) add_ecert(stub *shim.ChaincodeStub, name string, ecert
 func (t *SimpleChaincode) get_username(stub *shim.ChaincodeStub) (string, error) {
 
 	bytes, err := stub.GetCallerCertificate();
-	if err != nil { 
-		return "", errors.New("Couldn't retrieve caller certificate") 
+	if err != nil {
+		return "", errors.New("Couldn't retrieve caller certificate")
 	}
 
-	x509Cert, err := x509.ParseCertificate(bytes);				// Extract Certificate from result of GetCallerCertificate						
-	if err != nil { 
-		return "", errors.New("Couldn't parse certificate")	
+	x509Cert, err := x509.ParseCertificate(bytes);				// Extract Certificate from result of GetCallerCertificate
+	if err != nil {
+		return "", errors.New("Couldn't parse certificate")
 	}
-															
+
 	return x509Cert.Subject.CommonName, nil
 }
 
@@ -555,27 +558,27 @@ func (t *SimpleChaincode) get_username(stub *shim.ChaincodeStub) (string, error)
 // 				  		certificates common name. The affiliation is stored as part of the common name.
 //==============================================================================================================================
 
-func (t *SimpleChaincode) check_affiliation(stub *shim.ChaincodeStub, cert string) (int, error) {																																																					
-	
+func (t *SimpleChaincode) check_affiliation(stub *shim.ChaincodeStub, cert string) (int, error) {
+
 
 	decodedCert, err := url.QueryUnescape(cert);    				// make % etc normal //
-	
-	if err != nil { 
-		return -1, errors.New("Could not decode certificate") 
+
+	if err != nil {
+		return -1, errors.New("Could not decode certificate")
 	}
 	pem, _ := pem.Decode([]byte(decodedCert))           				// Make Plain text   //
 	x509Cert, err := x509.ParseCertificate(pem.Bytes);				// Extract Certificate from argument //
-														
-	if err != nil { 
-		return -1, errors.New("Couldn't parse certificate")	
+
+	if err != nil {
+		return -1, errors.New("Couldn't parse certificate")
 	}
 
 	cn := x509Cert.Subject.CommonName
 	res := strings.Split(cn,"\\")
 	affiliation, _ := strconv.Atoi(res[2])
-	
+
 	return affiliation, nil
-		
+
 }
 
 //==============================================================================================================================
@@ -584,25 +587,25 @@ func (t *SimpleChaincode) check_affiliation(stub *shim.ChaincodeStub, cert strin
 //==============================================================================================================================
 
 
-func (t *SimpleChaincode) get_caller_data(stub *shim.ChaincodeStub) ([]byte, error){	
+func (t *SimpleChaincode) get_caller_data(stub *shim.ChaincodeStub) ([]byte, error){
 
 	user, err := t.get_username(stub)
-	if err != nil { 
-		return nil, err 
-	}
-																		
-	ecert, err := t.get_ecert(stub, user);					
-	if err != nil { 
-		return nil, err 
+	if err != nil {
+		return nil, err
 	}
 
-	affiliation, err := t.check_affiliation(stub,string(ecert));			
-	if err != nil { 
-		return nil, err 
+	ecert, err := t.get_ecert(stub, user);
+	if err != nil {
+		return nil, err
+	}
+
+	affiliation, err := t.check_affiliation(stub,string(ecert));
+	if err != nil {
+		return nil, err
 	}
 
 	varToReturn := `{ "user": "`+ user + `", "affiliation" : "` + strconv.Itoa(affiliation) + `"}`
 
 	return []byte(varToReturn), nil
-	
+
 }
