@@ -92,7 +92,7 @@ func main() {
 }
 
 // Init resets all the things
-func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 
 //inizializzo la lista di indici dei vari orologi contenuti nella blockchain
 	var err error
@@ -124,7 +124,7 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 //==============================================================================================================================
 
 // Invoke is our entry point to invoke a chaincode function
-func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 	fmt.Println("invoke is running " + function)
 
 	// Handle different functions
@@ -147,7 +147,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 
 
 // Query is our entry point for queries
-func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 	fmt.Println("query is running " + function)
 
 	// Handle different functions
@@ -168,7 +168,7 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 	return nil, errors.New("Received unknown function query")
 }
 
-func (t *SimpleChaincode) read (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode) read (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	var key, jsonResp string
 	var err error
 
@@ -189,7 +189,7 @@ func (t *SimpleChaincode) read (stub *shim.ChaincodeStub, args []string) ([]byte
     return valAsbytes, nil
 }
 
-func (t *SimpleChaincode) readAllWatches (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode) readAllWatches (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	watchIndexAsBytes, err := stub.GetState(watchIndexStr)
 		if err != nil {
@@ -218,7 +218,7 @@ func (t *SimpleChaincode) readAllWatches (stub *shim.ChaincodeStub, args []strin
 	return jsonAsBytes,nil
 }
 
-func (t *SimpleChaincode) readAllUsers (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode) readAllUsers (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	userAsBytes, err := stub.GetState(userIndexStr)
 		if err != nil {
@@ -227,7 +227,7 @@ func (t *SimpleChaincode) readAllUsers (stub *shim.ChaincodeStub, args []string)
 		return userAsBytes,nil
 }
 
-func (t *SimpleChaincode) authenticateWatch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode) authenticateWatch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	var serial = args[0]
 	var codCliente = args[1]
@@ -257,7 +257,7 @@ func (t *SimpleChaincode) authenticateWatch (stub *shim.ChaincodeStub, args []st
 	return jsonAsBytes, nil
 }
 
-func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode) createWatch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	var key = args [0]
 	var jsonBlob = []byte(args[1])
@@ -317,7 +317,7 @@ func (t *SimpleChaincode) createWatch (stub *shim.ChaincodeStub, args []string) 
 	return nil, nil
 }
 
-func (t *SimpleChaincode) registerWatch (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode) registerWatch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	if len(args) != 2 {
 		return nil, errors.New("Incorrect number of arguments. Expecting serial and customer code")
@@ -401,7 +401,7 @@ func (t *SimpleChaincode) registerWatch (stub *shim.ChaincodeStub, args []string
 
 }
 
-func (t *SimpleChaincode) addAttachment (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode) addAttachment (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	fmt.Println("running addAttachment() for the watch with serial: " + args[0])
 
@@ -435,7 +435,7 @@ func (t *SimpleChaincode) addAttachment (stub *shim.ChaincodeStub, args []string
 
 }
 
-func (t *SimpleChaincode) moveToNextActor (stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode) moveToNextActor (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	if len(args) != 2 {
 		return nil, errors.New("Incorrect number of arguments. Expecting serial and next actor as arguments")
@@ -507,7 +507,7 @@ func stringInSlice(a string, list []string) bool {
 //	 get_ecert - Takes the name passed and calls out to the REST API for HyperLedger to retrieve the ecert
 //				 for that user. Returns the ecert as retrived including html encoding.
 //==============================================================================================================================
-func (t *SimpleChaincode) get_ecert(stub *shim.ChaincodeStub, name string) ([]byte, error) {
+func (t *SimpleChaincode) get_ecert(stub shim.ChaincodeStubInterface, name string) ([]byte, error) {
 
 	ecert, err := stub.GetState(name)
 
@@ -520,7 +520,7 @@ func (t *SimpleChaincode) get_ecert(stub *shim.ChaincodeStub, name string) ([]by
 //	 add_ecert - Adds a new ecert and user pair to the table of ecerts
 //==============================================================================================================================
 
-func (t *SimpleChaincode) add_ecert(stub *shim.ChaincodeStub, name string, ecert string) ([]byte, error) {
+func (t *SimpleChaincode) add_ecert(stub shim.ChaincodeStubInterface, name string, ecert string) ([]byte, error) {
 
 
 	err := stub.PutState(name, []byte(ecert))
@@ -538,7 +538,7 @@ func (t *SimpleChaincode) add_ecert(stub *shim.ChaincodeStub, name string, ecert
 //				  Returns the username as a string.
 //==============================================================================================================================
 
-func (t *SimpleChaincode) get_username(stub *shim.ChaincodeStub) (string, error) {
+func (t *SimpleChaincode) get_username(stub shim.ChaincodeStubInterface) (string, error) {
 
 	bytes, err := stub.GetCallerCertificate();
 	if err != nil {
@@ -558,7 +558,7 @@ func (t *SimpleChaincode) get_username(stub *shim.ChaincodeStub) (string, error)
 // 				  		certificates common name. The affiliation is stored as part of the common name.
 //==============================================================================================================================
 
-func (t *SimpleChaincode) check_affiliation(stub *shim.ChaincodeStub, cert string) (int, error) {
+func (t *SimpleChaincode) check_affiliation(stub shim.ChaincodeStubInterface, cert string) (int, error) {
 
 
 	decodedCert, err := url.QueryUnescape(cert);    				// make % etc normal //
@@ -587,7 +587,7 @@ func (t *SimpleChaincode) check_affiliation(stub *shim.ChaincodeStub, cert strin
 //==============================================================================================================================
 
 
-func (t *SimpleChaincode) get_caller_data(stub *shim.ChaincodeStub) ([]byte, error){
+func (t *SimpleChaincode) get_caller_data(stub shim.ChaincodeStubInterface) ([]byte, error){
 
 	user, err := t.get_username(stub)
 	if err != nil {
