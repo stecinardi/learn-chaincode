@@ -243,7 +243,8 @@ func (t *SimpleChaincode) readAllUsers (stub shim.ChaincodeStubInterface, args [
 func (t *SimpleChaincode) isAuthenticatedWatch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	var serial = args[0]
-	var userId = args[1]
+	var secret = args[1]
+	var userId = args[2]
 
 	watchIndexAsBytes, err := stub.GetState(watchIndexStr)
 	if err != nil {
@@ -267,7 +268,7 @@ func (t *SimpleChaincode) isAuthenticatedWatch (stub shim.ChaincodeStubInterface
 
 	watch := unmarshWatchJson(watchAsBytes)
 
-	if watch.Authenticated == true && userId == watch.Actor {
+	if watch.Authenticated == true && secret == watch.Secret {
 		
 		response.Status = 0
 		response.Message = "The user with customer code " + userId + " owns the watch with serial " + serial
@@ -290,7 +291,8 @@ func (t *SimpleChaincode) isAuthenticatedWatch (stub shim.ChaincodeStubInterface
 func (t *SimpleChaincode) authenticateWatch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	var serial = args[0]
-	var userId = args[1]
+	var secret = args[1]
+	var userId = args[2]
 
 	watchIndexAsBytes, err := stub.GetState(watchIndexStr)
 	if err != nil {
@@ -312,11 +314,11 @@ func (t *SimpleChaincode) authenticateWatch (stub shim.ChaincodeStubInterface, a
 		return nil, err
 	}
 	watch := unmarshWatchJson(watchAsBytes)
-	if len(watch.Secret) <= 0 {
-		return nil,errors.New ("Watch NOT registered")
+	if len(watch.Secret) <= 0 ||  watch.Secret != secret {
+		return nil,errors.New ("Watch NOT registered or Incorrect Secret")
 	} else if watch.Authenticated == true {
 		return nil,errors.New ("Watch already authenticated")
-	} 
+	}
 
 	watch.Actor = userId
 	watch.Authenticated = true
