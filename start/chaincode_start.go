@@ -19,6 +19,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"time"
 	"encoding/json"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"crypto/x509"
@@ -35,13 +36,23 @@ type SimpleChaincode struct {
 
 //asset
 type Watch struct {
-	Serial string  	   `json:"serial"`
-	Price string 	   `json:"price"`
-	Model string 	   `json:"model"`
-	Actor string 	   `json:"actor"`
-	Status int			`json:"status"`
-	Authenticated bool  `json:"authenticated"`
-	Attachments []Attachment `json:"attachments"`
+	Serial string  	   			`json:"serial"`
+	Price string 	   			`json:"price"`
+	Model string 	   			`json:"model"`
+	Actor string 	   			`json:"actor"`
+	Status int					`json:"status"`
+	Secret string       		`json:"secret"`
+	Authenticated bool  		`json:"authenticated"`
+	Attachments []Attachment 	`json:"attachments"`
+	Loyalties []Loyalty		`json:"loyalties"`
+}
+
+type Loyalty struct {
+	Status int 					`json:"status"`
+	StartDate time.Time  		`json:"startDate"`
+	EndDate time.Time 			`json:"endDate"`
+	Description string 			`json:"description"`
+	Type string 				`json:"type"`
 }
 
 type Attachment struct {
@@ -339,18 +350,22 @@ func (t *SimpleChaincode) registerWatch (stub shim.ChaincodeStubInterface, args 
 		return nil,errors.New ("Watch serial not exists. Verify the serial and please try again")
 	}
 
-	//verifichiamo lo stato si autenticazione dell'orologio - è già stato autenticato da un altro utente?
+	//verifichiamo lo stato di autenticazione dell'orologio - è già stato autenticato da un altro utente?
+	
 	watchAsBytes, err := stub.GetState(serial)
 	if err != nil {
 		return nil, err
 	}
 	watch := unmarshWatchJson(watchAsBytes)
-	if watch.Authenticated == true {
-		return nil,errors.New ("Watch serial already registered")
+	if len(watch.Secret) <= 0 {
+		return nil,errors.New ("Watch already registered")
+	} else if watch.Authenticated == true {
+		return nil,errors.New ("Watch already authenticated")
 	}
 
 	//registriamo la nuova info sull'autenticazione dell'orologio su blockchain
-	watch.Authenticated = true
+	//watch.Authenticated = true
+	watch.Secret = args[1]
 	jsonString, err := json.Marshal(watch)
 	if err != nil {
 		fmt.Println("error: ", err)
@@ -361,39 +376,6 @@ func (t *SimpleChaincode) registerWatch (stub shim.ChaincodeStubInterface, args 
 	if err != nil {
 		return nil,err
 	}
-
-	//registriamo il nuovo utente e aggiungiamo l'orologio nella lista
-	//degli orologi in suo possesso e autenticati
-
-	var codCliente = args[1]
-	var user User
-	user.CodCliente = codCliente
-	user.Watches = append (user.Watches,serial)
-
-	jsonUserAsBytes, err := json.Marshal(user)
-	if err != nil {
-		fmt.Println("error: ", err)
-	}
-
-	fmt.Printf("! user object: %+v ", user)
-
-	err = stub.PutState(codCliente, jsonUserAsBytes)								//rewrite the watch with id as key
-	if err != nil {
-		return nil, err
-	}
-
-	//aggiungo il nuovo codCliente all'indice degli utenti
-
-	userIndexAsBytes, err := stub.GetState(userIndexStr)
-	if err != nil {
-		return nil, errors.New("Failed to get watch index")
-	}
-	var userIndex []string
-	json.Unmarshal(userIndexAsBytes, &userIndex)
-	userIndex = append(userIndex, codCliente)								//add customer code to index list
-	fmt.Println("! user index: ", userIndex)
-	jsonIndexUserAsBytes, _ := json.Marshal(userIndex)
-	err = stub.PutState(userIndexStr, jsonIndexUserAsBytes)
 
 	fmt.Println("- end registerWatch function -")
 
