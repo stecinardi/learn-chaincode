@@ -149,6 +149,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.addAttachment(stub,args)
 	} else if function == "register_watch" {
 		return t.registerWatch(stub,args)
+	} else if function == "authenticate_watch" {
+		return t.authenticateWatch(stub,args)
 	}
 
 	fmt.Println("invoke did not find func: " + function)					//error
@@ -170,8 +172,8 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 		return t.readAllUsers(stub,args)
 	} else if function == "get_caller_data" {
 		return t.get_caller_data(stub)
-	} else if function == "authenticate_watch" {
-		return t.authenticateWatch(stub,args)
+	} else if function == "is_authenticated_watch" {
+		return t.isAuthenticatedWatch(stub,args)
 	}
 
 	fmt.Println("query did not find func: " + function)						//error
@@ -238,26 +240,43 @@ func (t *SimpleChaincode) readAllUsers (stub shim.ChaincodeStubInterface, args [
 		return userAsBytes,nil
 }
 
-func (t *SimpleChaincode) authenticateWatch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+func (t *SimpleChaincode) isAuthenticatedWatch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	var serial = args[0]
-	var codCliente = args[1]
+	var userId = args[1]
 
-	userAsBytes, err := stub.GetState(codCliente)
+	watchIndexAsBytes, err := stub.GetState(watchIndexStr)
+	if err != nil {
+		return nil, errors.New("Failed to get watch index")
+	}
+
+	var watchIndex []string
+	json.Unmarshal(watchIndexAsBytes, &watchIndex)
+
+	if !stringInSlice(serial, watchIndex) {
+		return nil,errors.New ("Watch serial not exists. Verify the serial and please try again")
+	}
+
+	//verifichiamo lo stato di autenticazione dell'orologio - è già stato autenticato da un altro utente?
+	
+	watchAsBytes, err := stub.GetState(serial)
 	if err != nil {
 		return nil, err
 	}
-	user := unmarshUserJson(userAsBytes)
-
 	var response Response
 
-	if !stringInSlice(serial, user.Watches) {
+	watch := unmarshWatchJson(watchAsBytes)
+
+	if watch.Authenticated == true && userId == watch.Actor {
+		
+		response.Status = 0
+		response.Message = "The user with customer code " + userId + " owns the watch with serial " + serial
+	
+	} else {
 
 		response.Status = -1
-		response.Message = "The user with customer code " + codCliente + " DOES NOT own the watch with serial " + serial
-	} else {
-		response.Status = 0
-		response.Message = "The user with customer code " + codCliente + " owns the watch with serial " + serial
+		response.Message = "The user with customer code " + userId + " DOES NOT own the watch with serial " + serial
+	
 	}
 
 	jsonAsBytes, err := json.Marshal(response)
@@ -267,6 +286,55 @@ func (t *SimpleChaincode) authenticateWatch (stub shim.ChaincodeStubInterface, a
 
 	return jsonAsBytes, nil
 }
+
+func (t *SimpleChaincode) authenticateWatch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	var serial = args[0]
+	var userId = args[1]
+
+	watchIndexAsBytes, err := stub.GetState(watchIndexStr)
+	if err != nil {
+		return nil, errors.New("Failed to get watch index")
+	}
+
+	var watchIndex []string
+	json.Unmarshal(watchIndexAsBytes, &watchIndex)
+
+	if !stringInSlice(serial, watchIndex) {
+		return nil,errors.New ("Watch serial not exists. Verify the serial and please try again")
+	}
+
+	//verifichiamo lo stato di autenticazione dell'orologio - è già stato autenticato da un altro utente?
+	
+	watchAsBytes, err := stub.GetState(serial)
+	
+	if err != nil {
+		return nil, err
+	}
+	watch := unmarshWatchJson(watchAsBytes)
+	if len(watch.Secret) <= 0 {
+		return nil,errors.New ("Watch NOT registered")
+	} else if watch.Authenticated == true {
+		return nil,errors.New ("Watch already authenticated")
+	} 
+
+	watch.Actor = userId
+	watch.Authenticated = true
+
+	jsonString, err := json.Marshal(watch)
+	if err != nil {
+		fmt.Println("error: ", err)
+	}
+
+	err = stub.PutState(serial, jsonString)
+
+	if err != nil {
+		return nil,err
+	}
+
+	return nil, nil
+}
+
 
 func (t *SimpleChaincode) createWatch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
