@@ -357,7 +357,7 @@ func (t *SimpleChaincode) registerWatch (stub shim.ChaincodeStubInterface, args 
 		return nil, err
 	}
 	watch := unmarshWatchJson(watchAsBytes)
-	if len(watch.Secret) <= 0 {
+	if len(watch.Secret) > 0 {
 		return nil,errors.New ("Watch already registered")
 	} else if watch.Authenticated == true {
 		return nil,errors.New ("Watch already authenticated")
