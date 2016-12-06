@@ -274,7 +274,7 @@ func (t *SimpleChaincode) isAuthenticatedWatch (stub shim.ChaincodeStubInterface
 	} else {
 
 		response.Status = -1
-		response.Message = "The watch " + serial + "is not Authenticated"
+		response.Message = `{ "authenticated" : "` + strconv.FormatBool(watch.Authenticated) + `"}`
 	
 	}
 
