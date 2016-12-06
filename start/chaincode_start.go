@@ -175,9 +175,13 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 		return t.get_caller_data(stub)
 	} else if function == "is_authenticated_watch" {
 		return t.isAuthenticatedWatch(stub,args)
+	} else if function == "verify_authenticate_watch" {
+		return t.verify_authenticateWatch(stub,args)
+	} else if function == "verify_register_watch" {
+		return t.verify_registerWatch(stub,args)
 	}
 
-	fmt.Println("query did not find func: " + function)						//error
+	fmt.Println("query did not find func: " + function)					
 
 	return nil, errors.New("Received unknown function query")
 }
