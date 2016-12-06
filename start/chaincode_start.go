@@ -270,7 +270,7 @@ func (t *SimpleChaincode) isAuthenticatedWatch (stub shim.ChaincodeStubInterface
 	if watch.Authenticated == true && secret == watch.Secret {
 		
 		response.Status = 0
-		response.Message = string(watchAsBytes)
+		response.Message = `{ "uuid": "`+ watch.Actor + `", "authenticated" : "` + strconv.FormatBool(watch.Authenticated) + `"}`
 	} else {
 
 		response.Status = -1
