@@ -320,23 +320,23 @@ func (t *SimpleChaincode) verify_authenticateWatch (stub shim.ChaincodeStubInter
 		
 		response.Status = -1
 		response.Code = "00001" // incorrect serial or watch not present
-		response.Message = `{ "description: incorrect serial or watch not exists " }`
+		response.Message = `{ "description" : "incorrect serial or watch not exists" }`
 		
 	} else if len(watch.Secret) <= 0 ||  watch.Secret != secret {
 		
 		response.Status = -1
 		response.Code = "00002" // no secret or incorrect secret 
-		response.Message = `{ "description: no secret or incorrect secret " }`
+		response.Message = `{ "description": "no secret or incorrect secret" }`
 	} else if watch.Authenticated == true {
 
 		response.Status = -1
 		response.Code = "00003" //watch already authenticated
-		response.Message = `{ "description" : watch already authenticated"}`
+		response.Message = `{ "description" : "watch already authenticated"}`
 	
 	} else {
 		response.Status = 0
 		response.Code = "" //watch already authenticated
-		response.Message = `{ "description" : watch can be authenticated"}`
+		response.Message = `{ "description" : "watch can be authenticated"}`
 	}
 
 	jsonAsBytes, err := json.Marshal(response)
@@ -470,23 +470,23 @@ func (t *SimpleChaincode) verify_registerWatch (stub shim.ChaincodeStubInterface
 	if !stringInSlice(serial, watchIndex) {
 		response.Status = -1
 		response.Code = "00001" // incorrect serial or watch not present
-		response.Message = `{ "description: incorrect serial or watch not exists" }` 
+		response.Message = `{ "description": "incorrect serial or watch not exists" }` 
 	} else if len(watch.Secret) > 0 {
 
 		response.Status = -1
 		response.Code = "00004" // incorrect serial or watch not present
-		response.Message = `{ "description: watch serial already registered for a customer" }` 
+		response.Message = `{ "description": "watch serial already registered for a customer" }` 
 
 	} else if watch.Authenticated == true {
 
 		response.Status = -1
 		response.Code = "00003" // incorrect serial or watch not present
-		response.Message = `{ "description: watch already authenticated" }` 
+		response.Message = `{ "description" : "watch already authenticated" }` 
 
 	} else {
 		response.Status = 0
 		response.Code = "" //watch already authenticated
-		response.Message = `{ "description" : watch can be registered"}`
+		response.Message = `{ "description" : "watch can be registered"}`
 
 	}
 
