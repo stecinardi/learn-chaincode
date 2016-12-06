@@ -244,7 +244,6 @@ func (t *SimpleChaincode) isAuthenticatedWatch (stub shim.ChaincodeStubInterface
 
 	var serial = args[0]
 	var secret = args[1]
-	var userId = args[2]
 
 	watchIndexAsBytes, err := stub.GetState(watchIndexStr)
 	if err != nil {
@@ -271,12 +270,11 @@ func (t *SimpleChaincode) isAuthenticatedWatch (stub shim.ChaincodeStubInterface
 	if watch.Authenticated == true && secret == watch.Secret {
 		
 		response.Status = 0
-		response.Message = "The user with customer code " + userId + " owns the watch with serial " + serial
-	
+		response.Message = string(watchAsBytes)
 	} else {
 
 		response.Status = -1
-		response.Message = "The user with customer code " + userId + " DOES NOT own the watch with serial " + serial
+		response.Message = "The watch " + serial + "is not Authenticated"
 	
 	}
 
