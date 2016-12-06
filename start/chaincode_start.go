@@ -86,6 +86,7 @@ type User_and_eCert struct {
 
 type Response struct {
 	Status int `json:"status"`
+	Code string `json:"code"`
 	Message string `json:"message"`
 }
 
@@ -286,11 +287,12 @@ func (t *SimpleChaincode) isAuthenticatedWatch (stub shim.ChaincodeStubInterface
 	return jsonAsBytes, nil
 }
 
-func (t *SimpleChaincode) authenticateWatch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-
+func (t *SimpleChaincode) verify_authenticateWatch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	
 	var serial = args[0]
 	var secret = args[1]
-	var userId = args[2]
+
+	var response Response
 
 	watchIndexAsBytes, err := stub.GetState(watchIndexStr)
 	if err != nil {
@@ -300,10 +302,6 @@ func (t *SimpleChaincode) authenticateWatch (stub shim.ChaincodeStubInterface, a
 	var watchIndex []string
 	json.Unmarshal(watchIndexAsBytes, &watchIndex)
 
-	if !stringInSlice(serial, watchIndex) {
-		return nil,errors.New ("Watch serial not exists. Verify the serial and please try again")
-	}
-
 	//verifichiamo lo stato di autenticazione dell'orologio - è già stato autenticato da un altro utente?
 	
 	watchAsBytes, err := stub.GetState(serial)
@@ -311,12 +309,54 @@ func (t *SimpleChaincode) authenticateWatch (stub shim.ChaincodeStubInterface, a
 	if err != nil {
 		return nil, err
 	}
+
 	watch := unmarshWatchJson(watchAsBytes)
-	if len(watch.Secret) <= 0 ||  watch.Secret != secret {
-		return nil,errors.New ("Watch NOT registered or Incorrect Secret")
+
+	if !stringInSlice(serial, watchIndex) {
+		
+		response.Status = -1
+		response.Code = "00001" // incorrect serial or watch not present
+		response.Message = `{ "description: incorrect serial or watch not exists " }`
+		
+	} else if len(watch.Secret) <= 0 ||  watch.Secret != secret {
+		
+		response.Status = -1
+		response.Code = "00002" // no secret or incorrect secret 
+		response.Message = `{ "description: no secret or incorrect secret " }`
 	} else if watch.Authenticated == true {
-		return nil,errors.New ("Watch already authenticated")
+
+		response.Status = -1
+		response.Code = "00003" //watch already authenticated
+		response.Message = `{ "description" : watch already authenticated"}`
+	
+	} else {
+		response.Status = 0
+		response.Code = "" //watch already authenticated
+		response.Message = `{ "description" : watch can be authenticated"}`
 	}
+
+	jsonAsBytes, err := json.Marshal(response)
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonAsBytes, nil
+
+}
+
+
+func (t *SimpleChaincode) authenticateWatch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	var serial = args[0]
+	var userId = args[1]
+
+	watchAsBytes, err := stub.GetState(serial)
+	
+	if err != nil {
+		return nil, err
+	}
+
+	watch := unmarshWatchJson(watchAsBytes)
 
 	watch.Actor = userId
 	watch.Authenticated = true
@@ -396,15 +436,14 @@ func (t *SimpleChaincode) createWatch (stub shim.ChaincodeStubInterface, args []
 	return nil, nil
 }
 
-func (t *SimpleChaincode) registerWatch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-
+func (t *SimpleChaincode) verify_registerWatch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	
 	if len(args) != 2 {
 		return nil, errors.New("Incorrect number of arguments. Expecting serial and customer code")
 	}
 
 	var serial = args[0]
-
-	//verifichiamo l'esistenza dell'orologio all'interno della blockchain
+	var response Response
 
 	watchIndexAsBytes, err := stub.GetState(watchIndexStr)
 	if err != nil {
@@ -414,26 +453,68 @@ func (t *SimpleChaincode) registerWatch (stub shim.ChaincodeStubInterface, args 
 	var watchIndex []string
 	json.Unmarshal(watchIndexAsBytes, &watchIndex)
 
-	if !stringInSlice(serial, watchIndex) {
-		return nil,errors.New ("Watch serial not exists. Verify the serial and please try again")
+	//verifichiamo lo stato di autenticazione dell'orologio - è già stato autenticato da un altro utente?
+	
+	watchAsBytes, err := stub.GetState(serial)
+	
+	if err != nil {
+		return nil, err
 	}
 
-	//verifichiamo lo stato di autenticazione dell'orologio - è già stato autenticato da un altro utente?
+	watch := unmarshWatchJson(watchAsBytes)
+
+	if !stringInSlice(serial, watchIndex) {
+		response.Status = -1
+		response.Code = "00001" // incorrect serial or watch not present
+		response.Message = `{ "description: incorrect serial or watch not exists" }` 
+	} else if len(watch.Secret) > 0 {
+
+		response.Status = -1
+		response.Code = "00004" // incorrect serial or watch not present
+		response.Message = `{ "description: watch serial already registered for a customer" }` 
+
+	} else if watch.Authenticated == true {
+
+		response.Status = -1
+		response.Code = "00003" // incorrect serial or watch not present
+		response.Message = `{ "description: watch already authenticated" }` 
+
+	} else {
+		response.Status = 0
+		response.Code = "" //watch already authenticated
+		response.Message = `{ "description" : watch can be registered"}`
+
+	}
+
+	jsonAsBytes, err := json.Marshal(response)
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonAsBytes, nil
+
+}
+
+func (t *SimpleChaincode) registerWatch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	if len(args) != 2 {
+		return nil, errors.New("Incorrect number of arguments. Expecting serial and customer code")
+	}
+
+	var serial = args[0]
+	var secret = args[1]
 	
 	watchAsBytes, err := stub.GetState(serial)
 	if err != nil {
 		return nil, err
 	}
-	watch := unmarshWatchJson(watchAsBytes)
-	if len(watch.Secret) > 0 {
-		return nil,errors.New ("Watch already registered")
-	} else if watch.Authenticated == true {
-		return nil,errors.New ("Watch already authenticated")
-	}
 
-	//registriamo la nuova info sull'autenticazione dell'orologio su blockchain
-	//watch.Authenticated = true
-	watch.Secret = args[1]
+	watch := unmarshWatchJson(watchAsBytes)
+
+	//registriamo l'hash secret dell'orologio su blockchain
+
+	watch.Secret = secret
+	
 	jsonString, err := json.Marshal(watch)
 	if err != nil {
 		fmt.Println("error: ", err)
