@@ -152,7 +152,10 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.registerWatch(stub,args)
 	} else if function == "authenticate_watch" {
 		return t.authenticateWatch(stub,args)
+	} else if function == "addLoyalty" {
+		return t.addLoyalty(stub,args)
 	}
+	
 
 	fmt.Println("invoke did not find func: " + function)					//error
 
