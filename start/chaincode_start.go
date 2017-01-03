@@ -179,6 +179,8 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 		return t.verify_authenticateWatch(stub,args)
 	} else if function == "verify_register_watch" {
 		return t.verify_registerWatch(stub,args)
+	} else if function == "loyalties_per_watch" {
+		return t.loyalties_per_watch(stub,args)
 	}
 
 	fmt.Println("query did not find func: " + function)					
@@ -206,6 +208,36 @@ func (t *SimpleChaincode) read (stub shim.ChaincodeStubInterface, args []string)
 
     return valAsbytes, nil
 }
+
+func (t *SimpleChaincode) loyalties_per_watch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var serial,jsonResp string
+	if len(args) != 1 {
+		return nil, errors.New("Incorrect number of arguments. Expecting name of the key to query")
+
+	}
+	serial = args[0]
+	fmt.Println("serial: " + serial)
+	watchAsBytes, err := stub.GetState(serial)
+
+	 if err != nil {
+        jsonResp = "{\"Error\":\"Failed to get state for " + serial + "\"}"
+        return nil, errors.New(jsonResp)
+    }
+	
+	var watch Watch
+	json.Unmarshal(watchAsBytes, &watch)
+	var loyalties [] Loyalty = watch.Loyalties
+
+	jsonAsBytes, err := json.Marshal(loyalties)
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonAsBytes,nil
+
+}
+
+
 
 func (t *SimpleChaincode) readAllWatches (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
@@ -442,7 +474,7 @@ func (t *SimpleChaincode) createWatch (stub shim.ChaincodeStubInterface, args []
 
 func (t *SimpleChaincode) verify_registerWatch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	
-	if len(args) != 2 {
+	if len(args) != 1 {
 		return nil, errors.New("Incorrect number of arguments. Expecting serial and customer code")
 	}
 
@@ -570,6 +602,42 @@ func (t *SimpleChaincode) addAttachment (stub shim.ChaincodeStubInterface, args 
 
 }
 
+func (t *SimpleChaincode) addLoyalty (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+
+	fmt.Println("running addLoyalty() for the watch with serial: " + args[0])
+
+	if len(args) != 2 {
+			return nil, errors.New("Incorrect number of arguments. Expecting serial, attachment id and attachment URL")
+	}
+
+	var loyalty Loyalty
+	var serialWatch = args[0] // id orologio
+	var jsonBlob = []byte(args[1])
+
+	loyalty = unmarshLoyaltyJson(jsonBlob);
+
+	watchAsBytes, err := stub.GetState(serialWatch)
+	if err != nil {
+		return nil, err
+	}
+
+	watch := unmarshWatchJson(watchAsBytes)
+	watch.Loyalties = append (watch.Loyalties,loyalty)
+
+	jsonAsBytes, err := json.Marshal(watch)
+	if err != nil {
+		fmt.Println("error: ", err)
+	}
+
+	err = stub.PutState(args[0], jsonAsBytes)								//rewrite the watch with id as key
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+
+}
+
 func (t *SimpleChaincode) moveToNextActor (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 
 	if len(args) != 2 {
@@ -615,6 +683,15 @@ func  unmarshWatchJson (jsonAsByte []byte) (Watch) {
 		fmt.Println("error:", err)
 	}
 	return watch
+}
+
+func  unmarshLoyaltyJson (jsonAsByte []byte) (Loyalty) {
+	var loyalty Loyalty
+	err := json.Unmarshal(jsonAsByte, &loyalty)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	return loyalty
 }
 
 func  unmarshUserJson (jsonAsByte []byte) (User) {
