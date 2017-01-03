@@ -44,7 +44,7 @@ type Watch struct {
 	Secret string       		`json:"secret"`
 	Authenticated bool  		`json:"authenticated"`
 	Attachments []Attachment 	`json:"attachments"`
-	Loyalties []Loyalty		`json:"loyalties"`
+	Loyalties []Loyalty			`json:"loyalties"`
 }
 
 type Loyalty struct {
@@ -239,7 +239,6 @@ func (t *SimpleChaincode) loyalties_per_watch (stub shim.ChaincodeStubInterface,
 	return jsonAsBytes,nil
 
 }
-
 
 
 func (t *SimpleChaincode) readAllWatches (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
@@ -632,7 +631,8 @@ func (t *SimpleChaincode) addLoyalty (stub shim.ChaincodeStubInterface, args []s
 		fmt.Println("error: ", err)
 	}
 
-	err = stub.PutState(args[0], jsonAsBytes)								//rewrite the watch with id as key
+	err = stub.PutState(serialWatch, jsonAsBytes)								//rewrite the watch with id as key
+	
 	if err != nil {
 		return nil, err
 	}
@@ -692,7 +692,7 @@ func  unmarshLoyaltyJson (jsonAsByte []byte) (Loyalty) {
 	var loyalty Loyalty
 	err := json.Unmarshal(jsonAsByte, &loyalty)
 	if err != nil {
-		fmt.Println("error:", err)
+		fmt.Println("error unmarshLoyaltyJson:", err)
 	}
 	return loyalty
 }
