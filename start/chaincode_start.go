@@ -692,7 +692,7 @@ func  unmarshLoyaltyJson (jsonAsByte []byte) (Loyalty) {
 	var loyalty Loyalty
 	err := json.Unmarshal(jsonAsByte, &loyalty)
 	if err != nil {
-		fmt.Println("error unmarshLoyaltyJson:", err)
+		fmt.Println("error:", err)
 	}
 	return loyalty
 }
