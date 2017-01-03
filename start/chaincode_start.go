@@ -19,7 +19,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	"time"
+	//"time"
 	"encoding/json"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"crypto/x509"
@@ -49,8 +49,8 @@ type Watch struct {
 
 type Loyalty struct {
 	Status int 					`json:"status"`
-	StartDate time.Time  		`json:"startDate"`
-	EndDate time.Time 			`json:"endDate"`
+	StartDate string  			`json:"startDate"`
+	EndDate string 				`json:"endDate"`
 	Description string 			`json:"description"`
 	Type string 				`json:"type"`
 }
