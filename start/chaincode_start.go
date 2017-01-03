@@ -612,11 +612,11 @@ func (t *SimpleChaincode) addLoyalty (stub shim.ChaincodeStubInterface, args []s
 			return nil, errors.New("Incorrect number of arguments. Expecting serial, attachment id and attachment URL")
 	}
 
-	//var loyalty Loyalty
+	var loyalty Loyalty
 	var serialWatch = args[0] // id orologio
 	var jsonBlob = []byte(args[1])
-	fmt.Println("jsonBlob: ", jsonBlob)
-	//loyalty = unmarshLoyaltyJson(jsonBlob);
+
+	loyalty = unmarshLoyaltyJson(jsonBlob);
 
 	watchAsBytes, err := stub.GetState(serialWatch)
 	if err != nil {
@@ -624,7 +624,7 @@ func (t *SimpleChaincode) addLoyalty (stub shim.ChaincodeStubInterface, args []s
 	}
 
 	watch := unmarshWatchJson(watchAsBytes)
-	//watch.Loyalties = append (watch.Loyalties,loyalty)
+	watch.Loyalties = append (watch.Loyalties,loyalty)
 
 	jsonAsBytes, err := json.Marshal(watch)
 	if err != nil {
