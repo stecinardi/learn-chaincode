@@ -477,7 +477,7 @@ func (t *SimpleChaincode) createWatch (stub shim.ChaincodeStubInterface, args []
 func (t *SimpleChaincode) verify_registerWatch (stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	
 	if len(args) != 1 {
-		return nil, errors.New("Incorrect number of arguments. Expecting serial and customer code")
+		return nil, errors.New("Incorrect number of arguments. Expecting serial")
 	}
 
 	var serial = args[0]
@@ -726,7 +726,7 @@ func (t *SimpleChaincode) get_ecert(stub shim.ChaincodeStubInterface, name strin
 
 	ecert, err := stub.GetState(name)
 
-	if err != nil { return nil, errors.New("Couldn't retrieve ecert for user " + name) }
+	if err != nil { return nil, errors.New("Could not retrieve ecert for user " + name) }
 
 	return ecert, nil
 }
@@ -796,13 +796,15 @@ func (t *SimpleChaincode) check_affiliation(stub shim.ChaincodeStubInterface, ce
 
 }
 
-//==============================================================================================================================
+//=============================================================================================================================
 //	 get_caller_data - Calls the get_ecert and check_role functions and returns the ecert and role for the
-//					 name passed.
-//==============================================================================================================================
+//					 name passed. To be implemented
+//=============================================================================================================================
 
 
 func (t *SimpleChaincode) get_caller_data(stub shim.ChaincodeStubInterface) ([]byte, error){
+
+	//get caller data function 
 
 	user, err := t.get_username(stub)
 	if err != nil {
