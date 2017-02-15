@@ -103,7 +103,7 @@ func main() {
 	}
 }
 
-// Init resets all the things
+// Init resetta tutto
 func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 
 //inizializzo la lista di indici dei vari orologi contenuti nella blockchain
